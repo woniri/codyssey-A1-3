@@ -35,7 +35,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const response = await fetch("/api/classify", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: json.stringify({ thought: thoughtValue })
+                // ✨ 픽스 1: 대문자 JSON으로 수정 / 픽스 2: 백엔드 파이썬 스펙에 맞춰 'content'로 키값 매칭
+                body: JSON.stringify({ content: thoughtValue }) 
             });
 
             // [실패 처리 ④]: API 오류 (4xx, 5xx) 가동 대응
@@ -47,10 +48,10 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = await response.json();
 
             // 1. 플레이스홀더 영역에 AI의 감성 화두/공감 문구 렌더링
-            placeholderText.innerText = data.prompt;
+            // ✨ 픽스 3: 백엔드가 응답하는 'comfort' 필드명과 정확히 동기화
+            placeholderText.innerText = data.comfort; 
 
             // 2. 머릿속 기상도(태그 클라우드)에 동적 배지 추가
-            // 실무 팁: 과제 요건(Supabase 반영)을 위해 데이터베이스 연동 전 프론트 우선 시각화
             data.tags.forEach(tag => {
                 const tagBadge = document.createElement("span");
                 tagBadge.style.cssText = `
