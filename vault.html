@@ -1,0 +1,67 @@
+<!-- vault.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>타래 - 타래장</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+    <!-- vis-network 네트워크 그래프 엔진 라이브러리 로드 -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        #mynetwork { width: 100%; height: 500px; background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; margin-top: 1rem; }
+        #fusion-popup { display: none; position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--accent-color); color: white; padding: 1rem 2rem; border-radius: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 2000; text-align: center; font-weight: 500; animation: slideUp 0.3s ease-out; }
+        #fusion-btn { background: white; color: var(--accent-color); border: none; padding: 0.4rem 1rem; border-radius: 20px; font-weight: bold; margin-left: 1rem; cursor: pointer; }
+        #mobile-list-view { display: none; margin-top: 1rem; }
+        .mobile-thought-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; }
+        
+        /* 과제 요구사항: 미디어 쿼리를 통한 모바일 그래프 숨김 및 리스트 뷰 전환 */
+        @media (max-width: 768px) {
+            #mynetwork { display: none; }
+            #mobile-list-view { display: block; }
+        }
+        @keyframes slideUp { from { bottom: -5rem; opacity: 0; } to { bottom: 2rem; opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">🧵 타래</a>
+            <ul class="nav-menu">
+                <li class="nav-item"><a href="index.html">실마리</a></li>
+                <li class="nav-item"><a href="loom.html">베틀</a></li>
+                <li class="nav-item active"><a href="vault.html">타래장</a></li>
+                <li class="nav-item"><a href="settings.html">설정</a></li>
+            </ul>
+            <button id="theme-toggle" class="theme-toggle-btn">🌙 다크 모드</button>
+        </div>
+    </nav>
+
+    <main class="main-container">
+        <h2>🌌 생각의 은하수</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">데스크톱에서는 두 점을 함께 선택하여 생각을 융합할 수 있습니다. (PC: 마우스 드래그 또는 Shift+클릭)</p>
+        
+        <!-- 데스크톱용 동적 그래프 성단 -->
+        <div id="mynetwork"></div>
+
+        <!-- 모바일용 리스트 뷰 피드백 -->
+        <div id="mobile-list-view">
+            <p style="color: var(--accent-color); font-weight: bold; margin-bottom: 0.5rem;">📱 모바일 모드: 밀도별 생각 리스트</p>
+            <div id="list-container"></div>
+        </div>
+
+        <!-- 다중 선택 시 슬며시 솟아오르는 화학 반응 제어 팝업 -->
+        <div id="fusion-popup">
+            <span id="fusion-text">두 가닥의 생각이 유기적으로 연결되었습니다.</span>
+            <button id="fusion-btn">✨ 화학 반응 시키기</button>
+        </div>
+    </main>
+
+    <script src="js/storage.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/graph.js"></script>
+</body>
+</html>
