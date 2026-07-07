@@ -103,3 +103,17 @@ const TaraeStorage = {
         return { data, error };
     }
 };
+    /* js/storage.js TaraeStorage 객체 내부에 추가 */
+
+    // 9. 타래장 은하수 렌더링을 위한 생각 파편 전체 조회
+    async getThoughts() {
+        await this.init();
+        const user_id = await this.getUserId();
+        if (!user_id) return { data: null, error: new Error("인증 세션이 만료되었습니다.") };
+
+        const { data, error } = await _supabase
+            .from('thoughts')
+            .select('*')
+            .order('created_at', { ascending: false });
+        return { data, error };
+}
