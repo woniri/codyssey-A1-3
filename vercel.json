@@ -1,0 +1,15 @@
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" }
+  ],
+  "crons": [
+    {
+      "path": "/api/generate_insight",
+      "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/weekly",
+      "schedule": "0 0 * * 1"
+    }
+  ]
+}
