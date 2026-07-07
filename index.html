@@ -7,6 +7,8 @@
     <title>타래 - 실마리</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/dark-mode.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -93,19 +95,7 @@
 
     </main>
 
-    <!-- 테마 제어 임시 자바스크립트 -->
-    <script>
-        const toggleBtn = document.getElementById('theme-toggle');
-        toggleBtn.addEventListener('click', () => {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
-            if (currentTheme === 'dark') {
-                document.documentElement.removeAttribute('data-theme');
-                toggleBtn.innerText = '🌙 다크 모드';
-            } else {
-                document.documentElement.setAttribute('data-theme', 'dark');
-                toggleBtn.innerText = '☀️ 라이트 모드';
-            }
-        });
-    </script>
+    <script src="js/storage.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
