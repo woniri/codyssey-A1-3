@@ -4,20 +4,28 @@ const TaraeStorage = {
     supabaseClient: null,
     initPromise: null,
 
-    // [핵심 방어] 웹앱이 켜지자마자 환경 변수를 가져오는 초기화 프로세스 가동
     init() {
         if (!this.initPromise) {
             this.initPromise = fetch('/api/config')
                 .then(res => {
                     if (!res.ok) throw new Error("인프라 설정 키를 불러오지 못했습니다.");
-                    return res.json(); // 💡 fetch 응답 메서드는 소문자 json()이 맞습니다.
+                    return res.json();
                 })
                 .then(config => {
-                    if (!config.SUPABASE_URL || !config.SUPABASE_ANON_KEY) {
-                        throw new Error("Supabase 환경 변수가 비어있습니다. Vercel 설정을 확인하세요.");
+                    // 🛡️ 유령 문자 및 %20 공백 폭탄을 원천 박멸하는 초강력 세척기
+                    const strictClean = (str) => {
+                        if (!str) return '';
+                        return str.replace(/\s+/g, '').replace(/[^\x21-\x7E]/g, '');
+                    };
+
+                    const cleanUrl = strictClean(config.SUPABASE_URL);
+                    const cleanKey = strictClean(config.SUPABASE_ANON_KEY);
+
+                    if (!cleanUrl || !cleanKey) {
+                        throw new Error("Supabase 환경 변수가 비어있습니다.");
                     }
-                    // 글로벌 supabase 객체를 사용해 클라이언트 생성
-                    this.supabaseClient = supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
+
+                    this.supabaseClient = supabase.createClient(cleanUrl, cleanKey);
                     console.log("▲ Tarae 인프라 엔진: Supabase 연동 완료");
                 })
                 .catch(err => {
@@ -27,73 +35,153 @@ const TaraeStorage = {
         return this.initPromise;
     },
 
-    // [보안 가드] Supabase 인스턴스가 호출될 때, 초기화가 끝났는지 보장하는 안전장치
     async getClient() {
-        await this.init(); // 초기화 완료될 때까지 얌전하게 기다림 (레이스 컨디션 방지)
-        if (!this.supabaseClient) {
-            alert("서버 연결이 불안정합니다. 잠시 후 새로고침 해주세요.");
-            return null;
-        }
+        await this.init();
         return this.supabaseClient;
     },
 
-    // 1. 회원가입 및 데모 로그인 통합 처리
+    async getSession() {
+        const client = await this.getClient();
+        if (!client) return null;
+        const { data: { session }, error } = await client.auth.getSession();
+        if (error) return null;
+        return session;
+    },
+
+    async getUserId() {
+        const session = await this.getSession();
+        return session ? session.user.id : null;
+    },
+
+    /* === [1] 생각 타래 (Thoughts) 제어 모듈 === */
+    async saveThought(content, tags, comfort) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { error: { message: "인증되지 않은 사용자입니다." } };
+
+        const { data, error } = await client
+            .from("thoughts")
+            .insert([
+                {
+                    user_id: uid,
+                    content: content,
+                    tags: tags,
+                    comfort: comfort,
+                    created_at: new Date().toISOString()
+                }
+            ]);
+        return { data, error };
+    },
+
+    async getThoughts() {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: [], error: null }; // 로그인 전 에러 팝업 차단
+
+        return await client
+            .from("thoughts")
+            .select("*")
+            .eq("user_id", uid)
+            .order("created_at", { ascending: false });
+    },
+
+    /* === [2] 베틀 프로젝트 (Projects) 제어 모듈 === */
+    async getProjects() {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: [], error: null };
+
+        return await client
+            .from("projects")
+            .select("*")
+            .eq("user_id", uid)
+            .order("created_at", { ascending: false });
+    },
+
+    async insertProject(title, tasks, roadmap) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { error: { message: "인증되지 않은 사용자입니다." } };
+
+        return await client
+            .from("projects")
+            .insert([
+                {
+                    user_id: uid,
+                    title: title,
+                    tasks: tasks,
+                    roadmap: roadmap,
+                    created_at: new Date().toISOString()
+                }
+            ])
+            .select();
+    },
+
+    async updateProjectTasks(projectId, updatedTasks) {
+        const client = await this.getClient();
+        if (!client) return { error: { message: "서버 연결 실패" } };
+
+        return await client
+            .from("projects")
+            .update({ tasks: updatedTasks })
+            .eq("id", projectId)
+            .select();
+    },
+
+    /* === [3] 사용자 인증 (Auth) 및 상용 규격 메시지 모듈 === */
     async signUpOrLogin(email, password, isSignUp = false) {
         const client = await this.getClient();
-        if (!client) return { error: "인프라 연결 실패" };
+        if (!client) return { error: { message: "서버 연결에 실패했습니다." } };
+
+        const cleanEmail = email ? String(email).trim() : "";
+        const cleanPassword = password ? String(password).trim() : "";
+
+        if (isSignUp) {
+            if (!cleanEmail || !cleanPassword) {
+                alert("이메일 주소와 비밀번호를 입력한 후 가입하기 버튼을 누르세요.");
+                return { data: null, error: { message: "입력값 누락" } };
+            }
+            if (cleanPassword.length < 6) {
+                alert("비밀번호는 최소 6자리 이상이어야 합니다.");
+                return { data: null, error: { message: "비밀번호 제약 요건 미달" } };
+            }
+        } else {
+            if (!cleanEmail) { alert("이메일 주소를 입력하세요."); return { data: null, error: { message: "이메일 누락" } }; }
+            if (!cleanPassword) { alert("비밀번호를 입력하세요."); return { data: null, error: { message: "비밀번호 누락" } }; }
+        }
 
         try {
             if (isSignUp) {
-                // 회원가입 프로세스
-                const { data, error } = await client.auth.signUp({ email, password });
+                const { data, error } = await client.auth.signUp({ email: cleanEmail, password: cleanPassword });
                 if (error) throw error;
+                alert("회원가입 요청이 완료되었습니다!\n입력하신 이메일 함으로 발송된 인증 링크를 확인해 주세요.");
                 return { data, error: null };
             } else {
-                // 로그인 프로세스
-                const { data, error } = await client.auth.signInWithPassword({ email, password });
+                const { data, error } = await client.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
                 if (error) throw error;
                 return { data, error: null };
             }
         } catch (err) {
-            console.error("인증 에러:", err.message);
-            return { data: null, error: err.message };
+            let friendlyMessage = "인증에 실패했습니다. 다시 시도해 주세요.";
+            const errMsg = err.message || "";
+            if (errMsg.includes("Invalid login credentials")) friendlyMessage = "이메일 또는 비밀번호가 잘못되었습니다.";
+            else if (errMsg.includes("User already registered")) friendlyMessage = "이미 가입된 이메일 주소입니다.";
+            else if (errMsg.includes("Email not confirmed")) friendlyMessage = "이메일 인증이 완료되지 않았습니다.";
+            
+            alert(friendlyMessage);
+            return { data: null, error: { message: friendlyMessage } };
         }
     },
 
-    // 2. 현재 로그인한 유저의 고유 ID 추출
-    async getUserId() {
+    async signIn(email, password) { return await this.signUpOrLogin(email, password, false); },
+    async signUp(email, password) { return await this.signUpOrLogin(email, password, true); },
+    async signOut() {
         const client = await this.getClient();
-        if (!client) return null;
-        const { data : { session } } = await client.auth.getSession();
-        return session ? session.user.id : null;
-    },
-
-    // 3. 생각 파편 긁어오기
-    async getThoughts() {
-        const client = await this.getClient();
-        const uid = await this.getUserId();
-        if (!client || !uid) return { data: [] };
-
-        return await client.table("thoughts")
-            .select("*")
-            .eq("user_id", uid)
-            .order("created_at", { ascending: false })
-            .execute();
-    },
-
-    // 4. 프로젝트 목록 긁어오기
-    async getProjects() {
-        const client = await this.getClient();
-        const uid = await this.getUserId();
-        if (!client || !uid) return { data: [] };
-
-        return await client.table("projects")
-            .select("*")
-            .eq("user_id", uid)
-            .order("updated_at", { ascending: false })
-            .execute();
+        if (client) await client.auth.signOut();
+        localStorage.clear();
+        sessionStorage.clear();
+        location.reload();
     }
 };
 
-// 스크립트가 로드되자마자 배경에서 백엔드 키 가져오기 선제 시작
 TaraeStorage.init();

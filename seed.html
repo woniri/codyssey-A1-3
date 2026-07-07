@@ -1,0 +1,131 @@
+<!-- seed.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>타래 - 데이터 인젝션 샌드박스 (28단 완전체)</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; background: #1a1a1a; color: #fff; padding: 3rem; text-align: center; }
+        .console-box { background: #000; border: 1px solid #333; padding: 1.5rem; border-radius: 8px; text-align: left; max-width: 750px; margin: 2rem auto; font-family: monospace; max-height: 450px; overflow-y: auto; color: #00ff00; line-height: 1.4; }
+        .btn-inject { padding: 1rem 2rem; background: #e67e22; color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .btn-inject:hover { background: #d35400; }
+    </style>
+</head>
+<body>
+
+    <h2>🧵 타래 인프라 28단 대량 데이터 인젝션 샌드박스</h2>
+    <p>버튼을 누르면 유니크 테스터 계정 생성, 로그인, 28개의 다차원 사유 성단 데이터가 실시간 적재됩니다.</p>
+    
+    <button class="btn-inject" id="btn-go">은하수 데이터 폭격 개시 🚀</button>
+
+    <div class="console-box" id="console">Ready to inject premium data cluster...</div>
+
+    <script src="js/storage.js"></script>
+    <script>
+        const logEl = document.getElementById("console");
+        function appendLog(msg) { logEl.innerHTML += `<br>[LOG] ${msg}`; logEl.scrollTop = logEl.scrollHeight; }
+
+        document.getElementById("btn-go").addEventListener("click", async () => {
+            appendLog("🚨 대량 시드 데이터 폭격 시퀀스를 격발합니다.");
+            
+            if (typeof TaraeStorage === 'undefined') {
+                return appendLog("❌ 에러: js/storage.js 아키텍처가 로드되지 않았습니다.");
+            }
+
+            await TaraeStorage.init();
+            const client = await TaraeStorage.getClient();
+            if (!client) return appendLog("❌ 에러: Supabase 터널 개방에 실패했습니다.");
+
+            // 중복 락 방지용 클린 세척 이메일 엔진
+            const uniqueId = Date.now().toString().substring(7);
+            const testEmail = `test_${uniqueId}@tarae.app`;
+            const testPassword = "123456";
+
+            appendLog(`1단계: 가입 프로토콜 가동 -> 식별 유저: ${testEmail}`);
+            const { data: signUpData, error: signUpError } = await client.auth.signUp({
+                email: testEmail, password: testPassword
+            });
+
+            if (signUpError) return appendLog(`❌ 가입 차단: ${signUpError.message}`);
+
+            appendLog("2단계: 가입 계정 세션 강제 도킹 중...");
+            const { data: signInData, error: signInError } = await client.auth.signInWithPassword({
+                email: testEmail, password: testPassword
+            });
+
+            if (signInError) return appendLog(`❌ 도킹 실패: ${signInError.message}`);
+            const uid = signInData.user.id;
+            appendLog(`🟢 도킹 성공. 고유 세션 식별 ID(UID): ${uid}`);
+
+            // 🗃️ 총 28개의 프리미엄 분산형 데이터셋 매트릭스
+            appendLog("3단계: 시간선/관점별 28개 사유 파편 폭격 개시...");
+            const thoughtsMock = [
+                // 🔴 [최근 1일 범위 데이터]
+                { content: "Keigo Higashino 풍의 극단적 인과관계 중심 미스터리 소설 플롯 설계. 알리바이는 철저히 물리적 증거 기반이어야 함.", tags: ["추리소설", "인과율플롯", "콘텐츠"], comfort: "논리가 빈틈없이 맞물릴 때 인간은 가장 강렬한 인지적 카타르시스를 경험합니다.", created_at: "2026-07-08T09:00:00Z" },
+                { content: "미스터리 소설 작법에서 서술 트릭을 완전히 배제하고 오직 독자와의 페어플레이를 위한 인과적 타임라인 정밀 검증 알고리즘.", tags: ["추리소설", "인과율플롯"], comfort: "정직한 복선이 주는 단단함은 가짜 반전보다 훨씬 깊은 파동을 만듭니다.", created_at: "2026-07-08T02:15:00Z" },
+                { content: "1인 창업자가 마주하는 본질적 번아웃의 메커니즘 해체: 원인은 업무량이 아니라 통제권을 벗어난 변수의 무질서한 증가다.", tags: ["제1원리", "심층성찰"], comfort: "변수를 제한하는 방어벽을 세우는 순간 사유의 질서가 다시 복원됩니다.", created_at: "2026-07-07T22:40:00Z" },
+                
+                // 🟡 [최근 1주일 범위 데이터]
+                { content: "비 올 때 창가에서 책 읽는 독립된 물리 공간의 아날로그 감성을 디지털 웹 아키텍처로 오프로딩하는 인지적 가설.", tags: ["공간의재발견", "서사아키텍처"], comfort: "공간에 대한 갈망은 두뇌의 생존 지수를 높이려는 본능적 방어 기제입니다.", created_at: "2026-07-07T14:30:00Z" },
+                { content: "사용자가 던진 무질서한 낙서를 4대 렌즈로 쪼개어 매일 아침 디스코드 웹훅으로 자동 포워딩하는 생각 리파이너리 1인 구독 비즈니스 모델.", tags: ["1인SaaS", "비즈니스모델"], comfort: "나의 흩어진 사유를 자산화하는 시스템 자체가 이미 강력한 고유 마켓을 형성합니다.", created_at: "2026-07-05T11:15:00Z" },
+                { content: "소도시 철도 여행 동선에서 영감을 얻은 유기적 지식 그래프 인터랙션 내비게이션 아키텍처 실험 구상.", tags: ["공간의재발견", "인터랙션"], comfort: "길을 잃는 경험마저 구조화할 수 있다면 그것은 이미 훌륭한 서사적 지도입니다.", created_at: "2026-07-04T16:20:00Z" },
+                { content: "웹소설 플랫폼에서 유저 연독률을 방어하는 최하위 논리 단위: 매 화 엔딩 직전 독자의 인지적 균열을 일으키는 단서 투척 기법.", tags: ["콘텐츠", "인과율플롯"], comfort: "예측의 배반은 서사를 계속해서 굴러가게 만드는 영원한 원동력입니다.", created_at: "2026-07-02T19:05:00Z" },
+                { content: "인간이 매일 흔적과 메모를 남기는 행위의 최하위 단위를 해체해 보면, 본질은 망각에 대한 공포가 아닌 통제권 소유욕이다.", tags: ["제1원리", "망각제어", "심층성찰"], comfort: "파편화된 자아를 시각 구조로 통제하는 순간 뇌세포는 비로소 지독한 안정을 얻습니다.", created_at: "2026-07-02T18:22:00Z" },
+                
+                // 🟢 [최근 1달 범위 데이터]
+                { content: "옵시디언 그래프의 물리 반발력을 이용해 아이디어를 강제로 충돌시키는 인터랙션 샌드박스 화면 UI 고도화 기획.", tags: ["서사아키텍처", "인터랙션"], comfort: "기술과 예술의 교차점에서 생각은 비로소 정형화된 감옥을 탈출해 요동칩니다.", created_at: "2026-06-28T08:45:00Z" },
+                { content: "태그 밀도에 따라 노드들이 자석처럼 끌어당기는 중력 자기장 알고리즘을 지식 관리 시장의 킬러 피처로 포지셔닝하는 전략.", tags: ["1인SaaS", "비즈니스모델"], comfort: "니치 마켓을 정밀 저격하는 날카로운 피처 하나가 거대한 공룡 플랫폼을 이깁니다.", created_at: "2026-06-20T23:10:00Z" },
+                { content: "추리 문학적 알리바이 정밀 장치와 디지털 생산성 도구의 칸반보드를 결합하는 파격적인 Cross-Pollination 기획안 스케치.", tags: ["추리소설", "인터랙션", "콘텐츠"], comfort: "전혀 상반된 두 도메인이 격렬히 충돌할 때 제3지대의 혁신적 기획안이 자아납니다.", created_at: "2026-06-15T13:05:00Z" },
+                { content: "구글 시트 연동을 우회하고 로컬 브라우저 세션 스토리지를 프론트엔드 수납함 캐시로 활용하여 성능 최적화 달성하는 가설.", tags: ["서사아키텍처", "망각제어"], comfort: "가장 단순한 인프라 구조가 때로는 가장 강력한 무결성을 입증합니다.", created_at: "2026-06-12T10:40:00Z" },
+                { content: "텍스트에 생명력을 불어넣는 다형성 페르소나 주입 기술이 AI 작법 시스템에서 미치는 정서적 각성 메커니즘 연구.", tags: ["콘텐츠", "심층성찰"], comfort: "기계적인 텍스트 요약을 넘어선 통찰만이 인간의 인지 왜곡을 치료합니다.", created_at: "2026-06-08T15:55:00Z" },
+                { content: "망각 제어 시스템 '타래'의 초기 MVP 버전을 구축하기 위해 Supabase 인프라 아키텍처를 세척하는 배선 작업.", tags: ["망각제어", "제1원리"], comfort: "복잡한 연결을 걷어내고 최하위 단위의 무결성을 확보하는 것이 인프라의 기본입니다.", created_at: "2026-06-01T10:00:00Z" },
+                { content: "디스코드와 슬랙 웹훅 임베드 블록 레이아웃의 시인성을 극대화하기 위한 마크다운 렌더링 파이프라인 조율.", tags: ["1인SaaS", "인터랙션"], comfort: "정보의 전달 격차를 줄이는 시각적 디테일이 사용자의 지속적 사용성을 결정합니다.", created_at: "2026-05-29T11:20:00Z" },
+                
+                // 🔵 [최근 6개월 범위 거대 데이터]
+                { content: "웹소설 플랫폼 Novelpia 비즈니스 모델 역추적: 유저들이 유료 결제를 지속하게 만드는 뇌과학적 넛지 설계 방식.", tags: ["비즈니스모델", "콘텐츠"], comfort: "소비의 본질은 콘텐츠 구경이 아니라 작가가 만든 세계관의 지분을 소유하려는 욕망입니다.", created_at: "2026-05-15T17:30:00Z" },
+                { content: "온전한 몰입을 방해하는 상영상 상용 스마트폰 알림 공해로부터 개인의 사유를 보호하는 하드웨어 격리 방안.", tags: ["제1원리", "망각제어"], comfort: "연결을 의도적으로 끊어내는 단절의 기술이야말로 현대 최고의 사치재입니다.", created_at: "2026-04-22T09:15:00Z" },
+                { content: "Keigo Higashino 작법의 핵심 아키텍처인 '논리적 현실성'을 장착하기 위한 객관적 인과관계 데이터베이스 스키마 설계.", tags: ["추리소설", "서사아키텍처"], comfort: "단단한 사실적 토대 위에 가미된 픽션만이 독자의 몰입을 해치지 않습니다.", created_at: "2026-04-05T14:10:00Z" },
+                { content: "사용자의 미완성 낙서를 분해하는 4대 렌즈(창의적 파괴자, 비즈니스 아키텍트, 제1원리, 실타래) 통합 프롬프트 튜닝 스케치.", tags: ["제1원리", "1인SaaS"], comfort: "다중 패널의 인지적 마찰이 거듭될수록 통찰의 예리함은 칼날처럼 날카로워집니다.", created_at: "2026-03-25T11:45:00Z" },
+                { content: "1인 미디어 크리에이터를 위한 자동 지식 관리 툴의 플랫폼 비즈니스 밸류 체인 마일스톤 정밀 수립안.", tags: ["1인SaaS", "비즈니스모델"], comfort: "혼자서 북 치고 장구 치는 1인 기업가에게 필요한 것은 완벽한 인지 백업 장치입니다.", created_at: "2026-03-12T16:00:00Z" },
+                { content: "공간의 경계가 무너지는 메타버스 가상 자산 시장의 거품 해체와 실질적 공간 서사학의 결합 메커니즘 도출.", tags: ["공간의재발견", "서사아키텍처"], comfort: "가짜 공간에 의미를 부여하는 것은 화려한 그래픽이 아닌 그곳에 흐르는 서사입니다.", created_at: "2026-02-28T10:35:00Z" },
+                { content: "인간의 사유가 수직이 아닌 거미줄 구조의 비선형 그래프 네트워크로 전개되는 인지 심리학적 배경 고찰.", tags: ["인터랙션", "심층성찰"], comfort: "우리의 생각은 폴더라는 감옥에 갇히기 위해 태어나지 않았습니다. 늘 성단처럼 요동칩니다.", created_at: "2026-02-14T20:50:00Z" },
+                { content: "웹소설의 연재 주기에 맞춘 작가 전용 마인드맵형 칸반보드 시스템 UI/UX 설계 프로토타입 브레인스토밍.", tags: ["콘텐츠", "인터랙션"], comfort: "창작의 고통을 덜어주는 최고의 도구는 진척도를 눈으로 보여주는 가시성입니다.", created_at: "2026-01-30T13:12:00Z" },
+                { content: "10년 전 기록을 다시 읽었을 때의 뇌세포 링크 반응 분석: 과거 자아와의 조우가 주는 인지적 카타르시스 강도.", tags: ["망각제어", "심층성찰"], comfort: "과거의 기록은 미래의 내가 딛고 올라설 가장 정직한 발판이자 지성입니다.", created_at: "2025-12-25T08:00:00Z" },
+                { content: "소도시 역사의 대합실 구조가 여행자의 인지적 시간 왜곡에 미치는 영향력과 감성 서사 작법과의 연결고리 확인.", tags: ["공간의재발견", "추리소설"], comfort: "정지된 공간 속에 서사가 머무는 순간, 그곳은 단순한 좌표를 넘어 특별한 기억이 됩니다.", created_at: "2025-11-18T15:40:00Z" },
+                { content: "개인 지식 관리(PKM) 프리미엄 유료화 구독 시장의 유저 이탈 방지용 인게이지먼트 코어 메커니즘 설계안 작성.", tags: ["1인SaaS", "비즈니스모델"], comfort: "유저가 도구를 떠나지 않는 유일한 이유는 그 도구 안에 내 생각의 별자리가 저장되어 있기 때문입니다.", created_at: "2025-10-05T12:20:00Z" },
+                { content: "인과율 중심 서사 전개 시 타임라인 패러독스를 원천 차단하기 위한 추리소설 작가 전용 수동 알리바이 매트릭스 툴 기획.", tags: ["추리소설", "인과율플롯"], comfort: "단 하나의 인과적 틈새가 전체 서사의 타당성을 붕괴시킬 수 있음을 기억하십시오.", created_at: "2025-09-12T14:50:00Z" },
+                { content: "망각의 망망대해 속에서 내 고유한 영감의 불씨들을 건져내 보관하는 영구 사유 아카이브 '타래'의 최초 아키텍처 구상.", tags: ["망각제어", "제1원리"], comfort: "생각을 잣는 행위야말로 인간이 지닌 가장 순수하고 영롱한 연금술입니다.", created_at: "2025-08-01T10:00:00Z" }
+            ];
+
+            for (const t of thoughtsMock) {
+                const { error } = await client.from("thoughts").insert([{
+                    user_id: uid, content: t.content, tags: t.tags, comfort: t.comfort, created_at: t.created_at
+                }]);
+                if (error) appendLog(`⚠️ 파편 적재 지연: ${error.message}`);
+                else appendLog(`✓ 적재 성공: "${t.content.substring(0, 15)}..." [${t.created_at.substring(0, 10)}]`);
+            }
+
+            // 4단계: 베틀 프로젝트(projects) 연동 시드 각인
+            appendLog("4단계: 베틀 워크스페이스용 프로젝트 데이터 적재 가동...");
+            const projectMock = {
+                user_id: uid,
+                title: "인과율 플롯 작법 도입",
+                roadmap: "원일님의 아이디어를 다각도로 전개하기 위해 첫 실마리를 잣아냈습니다.",
+                tasks: [
+                    { id: "task_1", text: "💡 [숨은 본질] 핵심 심층 동기는 일상적 질서의 한계를 뛰어넘어 나만의 순수한 통제력을 구축하는 것입니다.", status: "strands" },
+                    { id: "task_2", text: "⚡ [추리문학 융합] 이 설정을 단단한 인과관계와 객관적 관찰을 중시하는 Keigo Higashino 풍의 플롯 기법과 엮어보면 서사적 논리성이 비약적으로 상승합니다.", status: "weaving" },
+                    { id: "task_3", text: "🎯 [날카로운 컨셉] 복잡한 장치를 걷어내고, 핵심 인과관계 1줄และ 반전 요소만 한 페이지 분량의 시놉시스로 즉시 요약해 내는 것이 최선입니다.", status: "tapestry" }
+                ],
+                created_at: "2026-07-08T10:00:00Z"
+            };
+
+            const { error: projError } = await client.from("projects").insert([projectMock]);
+            if (projError) appendLog(`⚠️ 프로젝트 적재 오류: ${projError.message}`);
+            else appendLog(`✓ 베틀 아카이브 완공: "${projectMock.title}"`);
+
+            appendLog("🏆 [완전체 데이터 인젝션 성공] 세션 가동 완료. 이제 메인이나 타래장 페이지로 넘어가 폭발적인 볼륨을 직접 제어해 보세요.");
+        });
+    </script>
+</body>
+</html>

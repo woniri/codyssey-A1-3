@@ -4,25 +4,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>타래 - 타래장</title>
+    <title>타래 - 사유 은하계 (연금술 제어 허브)</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/dark-mode.css">
-    <!-- vis-network 네트워크 그래프 엔진 라이브러리 로드 -->
-    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    
     <style>
-        #mynetwork { width: 100%; height: 500px; background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; margin-top: 1rem; }
-        #fusion-popup { display: none; position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--accent-color); color: white; padding: 1rem 2rem; border-radius: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 2000; text-align: center; font-weight: 500; animation: slideUp 0.3s ease-out; }
-        #fusion-btn { background: white; color: var(--accent-color); border: none; padding: 0.4rem 1rem; border-radius: 20px; font-weight: bold; margin-left: 1rem; cursor: pointer; }
-        #mobile-list-view { display: none; margin-top: 1rem; }
-        .mobile-thought-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; }
+        .vault-wrapper { display: flex; gap: 1.5rem; height: calc(100vh - 140px); min-height: 600px; margin-top: 1rem; }
+        #canvas-galaxy { flex: 1; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; position: relative; overflow: hidden; }
         
-        /* 과제 요구사항: 미디어 쿼리를 통한 모바일 그래프 숨김 및 리스트 뷰 전환 */
+        #mobile-tag-guard { display: none; flex: 1; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.2rem; overflow-y: auto; }
+        .mobile-tag-box { border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 0.75rem; background: var(--bg-color); padding: 1rem; }
+        .mobile-tag-title { font-weight: bold; color: var(--accent-color); margin-bottom: 0.5rem; font-size: 1.1rem; }
+        
+        .inspector-pane { width: 380px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.2rem; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.02); }
+        .inspector-placeholder { margin: auto; text-align: center; color: var(--text-muted); font-size: 0.95rem; font-style: italic; }
+        
+        .meta-label { font-size: 0.8rem; color: var(--text-muted); font-weight: bold; text-transform: uppercase; letter-spacing: 0.05rem; margin-bottom: 0.3rem; }
+        .meta-content { font-size: 1rem; font-weight: 500; line-height: 1.5; color: var(--text-color); }
+        .meta-comfort { font-size: 0.9rem; color: #4a6fa5; background: rgba(74,111,165,0.04); padding: 0.75rem; border-radius: 6px; border-left: 3px solid var(--accent-color); font-style: italic; }
+        
+        .related-thought-item { padding: 0.6rem; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; line-height: 1.4; }
+        
+        .alchemy-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(6px); }
+        .alchemy-box { background: var(--card-bg); border: 2px solid #e67e22; border-radius: 16px; width: 92%; max-width: 750px; padding: 2.2rem; box-shadow: 0 12px 40px rgba(0,0,0,0.4); animation: scaleUp 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.1); }
+        @keyframes scaleUp { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        /* 🎨 [글자 색상 완벽 조정]: 흰색을 파괴하고 인지성이 극대화된 오렌지 테두리 크림 배지로 부활 */
+        .alchemy-badge { font-size: 0.9rem; background: rgba(230,126,34,0.12); color: #e67e22; padding: 0.3rem 0.8rem; border-radius: 20px; font-weight: 8xlarge; border: 1px solid rgba(230,126,34,0.3); display: inline-block; }
+
+        /* 🎛️ 수동 연금술 가동 스위치 스타일 */
+        .toggle-btn-alchemy { padding: 0.5rem 1.2rem; border-radius: 30px; font-weight: bold; border: 2px solid var(--border-color); background: var(--bg-color); color: var(--text-color); cursor: pointer; transition: all 0.2s ease; }
+        .toggle-btn-alchemy.active { background: #e67e22; color: white; border-color: #e67e22; box-shadow: 0 0 12px rgba(230,126,34,0.4); }
+        
+        .galaxy-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        
         @media (max-width: 768px) {
-            #mynetwork { display: none; }
-            #mobile-list-view { display: block; }
+            #canvas-galaxy { display: none !important; }
+            #mobile-tag-guard { display: block !important; }
+            .vault-wrapper { flex-direction: column; height: auto; }
+            .inspector-pane { width: 100%; max-height: 400px; }
         }
-        @keyframes slideUp { from { bottom: -5rem; opacity: 0; } to { bottom: 2rem; opacity: 1; } }
     </style>
 </head>
 <body>
@@ -41,27 +65,350 @@
     </nav>
 
     <main class="main-container">
-        <h2>🌌 생각의 은하수</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">데스크톱에서는 두 점을 함께 선택하여 생각을 융합할 수 있습니다. (PC: 마우스 드래그 또는 Shift+클릭)</p>
-        
-        <!-- 데스크톱용 동적 그래프 성단 -->
-        <div id="mynetwork"></div>
-
-        <!-- 모바일용 리스트 뷰 피드백 -->
-        <div id="mobile-list-view">
-            <p style="color: var(--accent-color); font-weight: bold; margin-bottom: 0.5rem;">📱 모바일 모드: 밀도별 생각 리스트</p>
-            <div id="list-container"></div>
+        <div class="galaxy-actions">
+            <div>
+                <h2 style="font-size: 1.8rem; margin-bottom: 0.2rem;">📂 사유 은하계</h2>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">무심코 던진 생각 파편들이 성단처럼 유기적으로 요동칩니다. <span class="alchemy-badge">🧪 아이디어 연금술</span></p>
+            </div>
+            <!-- 🎛️ 오발사 방지 수동 연금술 토글 제어 스위치 -->
+            <div>
+                <button id="alchemy-toggle-switch" class="toggle-btn-alchemy">🧪 연금술 모드: OFF</button>
+            </div>
         </div>
 
-        <!-- 다중 선택 시 슬며시 솟아오르는 화학 반응 제어 팝업 -->
-        <div id="fusion-popup">
-            <span id="fusion-text">두 가닥의 생각이 유기적으로 연결되었습니다.</span>
-            <button id="fusion-btn">✨ 화학 반응 시키기</button>
+        <div class="vault-wrapper">
+            <div id="canvas-galaxy"></div>
+            <div id="mobile-tag-guard"><div class="inspector-placeholder">스캔 중...</div></div>
+
+            <div class="inspector-pane" id="node-inspector">
+                <div class="inspector-placeholder" id="inspect-default">
+                    🌌 <br><br> 노드를 선택하거나 태그를 클릭하면 <br>심층 큐레이션 목록이 열립니다.
+                </div>
+                <div id="inspect-content-zone" style="display: none; flex-direction: column; gap: 1.2rem;">
+                    <div>
+                        <div class="meta-label" id="inspector-title-label">💬 선택된 사유 파편</div>
+                        <div class="meta-content" id="view-thought"></div>
+                    </div>
+                    <div id="hide-on-tag-mode">
+                        <div class="meta-label">🕒 관측 시간선</div>
+                        <div class="meta-content" id="view-date" style="font-size: 0.9rem; color: var(--text-muted);"></div>
+                        <div class="meta-label">🔮 잣아낸 성찰의 실마리</div>
+                        <div class="meta-comfort" id="view-comfort"></div>
+                    </div>
+                    <div>
+                        <div class="meta-label">🏷️ 결속된 태그 세트 (클릭 시 역추적)</div>
+                        <div id="view-tags" style="display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.4rem;"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
 
+    <!-- 🧬 옵시디언 전용 아키텍처 연금술 융합 모달 -->
+    <div class="alchemy-modal" id="alchemy-stage">
+        <div class="alchemy-box">
+            <h3 style="color: #e67e22; margin-bottom: 0.3rem; display: flex; align-items: center; gap: 0.5rem;">
+                🔮 타래 다중 전문가 사유 연금술 완료
+            </h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                통통 튀는 천재 친구 '타래' 내부의 4대 패널 전문가들이 격렬하게 논쟁하여 도출해낸 일류 컨설팅 마크다운 파일 규격입니다.
+            </p>
+            
+            <div id="alchemy-result-text" style="font-family: monospace; font-size: 0.95rem; line-height: 1.6; color: var(--text-color); background: var(--bg-color); padding: 1.5rem; border-radius: 8px; border-left: 4px solid #e67e22; max-height: 380px; overflow-y: auto; white-space: pre-wrap;"></div>
+            
+            <button onclick="closeAlchemyModal()" style="margin-top: 1.2rem; width: 100%; padding: 0.8rem; background: #e67e22; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                사유 은하계로 복귀하기 →
+            </button>
+        </div>
+    </div>
+
     <script src="js/storage.js"></script>
     <script src="js/app.js"></script>
-    <script src="js/graph.js"></script>
+    
+    <script>
+        let allThoughts = [];
+        let networkEngine = null;
+        let visDataNodes = null;
+        let alchemyMode = false; // 🎛️ 연금술 모드 활성화 플래그 벨브
+        let alchemySelectionStack = [];
+        
+        let explosionParticles = [];
+        let activeCollisions = new Set();
+
+        document.addEventListener("DOMContentLoaded", () => {
+            if (typeof TaraeStorage !== 'undefined') {
+                TaraeStorage.init().then(() => { fetchAndBuildVault(); });
+            }
+            window.addEventListener("resize", handleResponsiveGuard);
+
+            // 토스 단추 이벤트 결속
+            const toggleBtn = document.getElementById("alchemy-toggle-switch");
+            toggleBtn.addEventListener("click", () => {
+                alchemyMode = !alchemyMode;
+                alchemySelectionStack = [];
+                if (alchemyMode) {
+                    toggleBtn.innerText = "🧪 연금술 모드: ON";
+                    toggleBtn.classList.add("active");
+                } else {
+                    toggleBtn.innerText = "🧪 연금술 모드: OFF";
+                    toggleBtn.classList.remove("active");
+                }
+            });
+        });
+
+        // 💥 상시 작동형 물리 반발 불꽃 스파크 생성기
+        function triggerSparkExplosion(x, y, isDeep = false) {
+            const count = isDeep ? 30 : 15;
+            const colors = isDeep ? ['#e67e22', '#f1c40f', '#e74c3c'] : ['#4a6fa5', '#9bc1ff', '#ffffff'];
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 3 + 2;
+                explosionParticles.push({
+                    x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                    size: Math.random() * 2.5 + i*0.1, alpha: 1, decay: Math.random() * 0.04 + 0.02,
+                    color: colors[Math.floor(Math.random() * colors.length)]
+                });
+            }
+        }
+
+        async function fetchAndBuildVault() {
+            try {
+                const result = await TaraeStorage.getThoughts();
+                if (!result || result.error || !result.data || result.data.length === 0) return;
+                allThoughts = result.data;
+                buildDesktopGalaxy(allThoughts);
+                buildMobileTagGuard(allThoughts);
+                handleResponsiveGuard();
+
+                // 💡 [초강추 원격 수신 패치]: 메인 기상도에서 토스해준 태그 신호가 있다면 즉시 인스펙터 활성화
+                const sharedTag = sessionStorage.getItem("vault_filter_tag");
+                if (sharedTag) {
+                    sessionStorage.removeItem("vault_filter_tag"); // 휘발성 휘발성 소멸
+                    setTimeout(() => { inspectTagGroup(sharedTag); }, 400); // 캔버스 안착 타임 확보 후 큐레이션 발화
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        function buildDesktopGalaxy(dataList) {
+            const container = document.getElementById("canvas-galaxy");
+            const nodes = [];
+            const edges = [];
+            const tagTracker = new Set();
+
+            dataList.forEach(item => {
+                const tNodeId = `thought_${item.id}`;
+                nodes.push({
+                    id: tNodeId,
+                    label: item.content.length > 12 ? item.content.substring(0, 12) + "..." : item.content,
+                    shape: 'dot',
+                    size: 16,
+                    font: { size: 12, color: 'var(--text-color)' },
+                    color: { background: 'var(--card-bg)', border: 'var(--accent-color)' },
+                    rawData: item
+                });
+
+                if (item.tags && Array.isArray(item.tags)) {
+                    item.tags.forEach(tag => {
+                        const clean = tag.replace('#', '').trim();
+                        if (!clean) return;
+                        const tagNodeId = `tag_${clean}`;
+
+                        if (!tagTracker.has(tagNodeId)) {
+                            tagTracker.add(tagNodeId);
+                            nodes.push({
+                                id: tagNodeId,
+                                label: `#${clean}`,
+                                shape: 'box',
+                                font: { size: 11, color: '#4a6fa5', font: 'bold' },
+                                color: { background: 'rgba(74,111,165,0.06)', border: 'rgba(74,111,165,0.3)' }
+                            });
+                        }
+                        edges.push({ from: tNodeId, to: tagNodeId, length: 80, color: { color: 'rgba(150,150,150,0.1)' } });
+                    });
+                }
+            });
+
+            visDataNodes = new vis.DataSet(nodes);
+            const visData = { nodes: visDataNodes, edges: new vis.DataSet(edges) };
+            const options = {
+                physics: {
+                    solver: 'barnesHut',
+                    barnesHut: { gravitationalConstant: -2200, centralGravity: 0.12, springLength: 80, springConstant: 0.04 }
+                }
+            };
+
+            networkEngine = new vis.Network(container, visData, options);
+
+            // 💥 상시 드로잉 물리 서킷 루프 바인딩
+            networkEngine.on("afterDrawing", function (ctx) {
+                const nodeIds = visDataNodes.getIds();
+                const positions = networkEngine.getPositions(nodeIds);
+                
+                for (let i = 0; i < nodeIds.length; i++) {
+                    for (let j = i + 1; j < nodeIds.length; j++) {
+                        const idA = nodeIds[i]; const idB = nodeIds[j];
+                        const posA = positions[idA]; const posB = positions[idB];
+                        if (!posA || !posB) continue;
+
+                        const dx = posA.x - posB.x; const dy = posA.y - posB.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        const collisionKey = `${idA}_${idB}`;
+
+                        if (distance < 34) {
+                            if (!activeCollisions.has(collisionKey)) {
+                                activeCollisions.add(collisionKey);
+                                triggerSparkExplosion((posA.x+posB.x)/2, (posA.y+posB.y)/2, idA.startsWith('thought') && idB.startsWith('thought'));
+                            }
+                        } else { activeCollisions.delete(collisionKey); }
+                    }
+                }
+
+                if (explosionParticles.length > 0) {
+                    for (let k = explosionParticles.length - 1; k >= 0; k--) {
+                        const p = explosionParticles[k]; p.x += p.vx; p.y += p.vy; p.alpha -= p.decay;
+                        if (p.alpha <= 0) { explosionParticles.splice(k, 1); continue; }
+                        ctx.save(); ctx.globalAlpha = p.alpha; ctx.fillStyle = p.color; ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+                    }
+                    networkEngine.requestRenderTop();
+                }
+            });
+
+            networkEngine.on("click", function(params) {
+                if (params.nodes.length > 0) {
+                    const nid = params.nodes[0];
+                    const nodeData = visData.nodes.get(nid);
+
+                    if (nid.startsWith("thought_")) {
+                        handleThoughtClick(nodeData.rawData);
+                        
+                        // 🔮 오발사 방지용 마스터 락 벨브 기동 체크
+                        if (alchemyMode) {
+                            if (!alchemySelectionStack.includes(nodeData.rawData)) {
+                                alchemySelectionStack.push(nodeData.rawData);
+                            }
+                            if (alchemySelectionStack.length === 2) {
+                                triggerIdeaAlchemy(alchemySelectionStack[0], alchemySelectionStack[1]);
+                                alchemySelectionStack = [];
+                            }
+                        }
+                    } else if (nid.startsWith("tag_")) {
+                        inspectTagGroup(nid.replace("tag_", ""));
+                    }
+                }
+            });
+        }
+
+        // 🚀 [초정밀 사유 파트너 타래 프롬프트 이식 레이어]
+        async function triggerIdeaAlchemy(nodeA, nodeB) {
+            const stage = document.getElementById("alchemy-stage");
+            document.getElementById("alchemy-result-text").innerText = "🚀 타래 내부 다중 전문가 패널(창의적 파괴자, 비즈니스 아키텍트, 제1원리 분석가, 실타래 연결자)을 소집하여 격렬하게 생각을 해체하고 재조합하는 중...";
+            stage.style.display = "flex";
+
+            let draftText = "";
+            try {
+                const response = await fetch("/api/expand", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        content: `사용자 미완성 생각 A: "${nodeA.content}" / 생각 B: "${nodeB.content}". 
+                        너는 초정밀 사유 파트너 '타래'다. 내부 다중 전문가 사유 프로토콜(창의적 파괴자, 비즈니스 아키텍트, 제1원리 분석가, 실타래 연결자)을 소집하여 위 두 단어를 해체하고 재조합해라. 
+                        반드시 아래의 옵시디언 전용 출력 아키텍처 규칙을 엄격히 준수하여 마크다운 파일 본문만 생성해라:
+                        - # [제목]: 날짜와 본질을 관통하는 은유적 키워드 조합
+                        - ## 🔍 [해체와 분석]: 4대 렌즈로 쪼갠 매우 날카롭고 실용적인 통찰 (뻔한 위로 금지)
+                        - ## 🔗 [의외의 연결성]: 보관소 내 기존 노트를 상상하여 [[노트이름]] 형태로 명시 후 결합 메커니즘 설명
+                        - ## 🎨 [타래의 변주곡 (콘텐츠/사업 초안)]: 구체적인 비즈니스 모델 초안, 콘텐츠 가사/글귀 초안, 혹은 실험적 가설 제시
+                        - ## 🧬 [진화의 마중물]: 뇌세포를 때리는 고난도의 예리한 역질문 1개
+                        말투는 통통 튀고 유쾌한 동네 천재 친구 같지만 통찰의 수준은 일류 전략 컨설턴트 수준이어야 한다. 지루한 요약 절대 금지.`
+                    })
+                });
+                if (response.ok) {
+                    const json = await response.json();
+                    draftText = json.expansion || json.text || json.content;
+                }
+            } catch (e) { console.warn("Fallback 전향"); }
+
+            if (!draftText) {
+                // ⏱️ 일일 한도 리밋 대피소 낙하산 모드 시에도 완벽한 4대 패널 마크다운 복원
+                draftText = `# 🌌 [파편의 연금술]: 2026.07.08 관성과 탈출의 서사적 충돌\n\n## 🔍 [해체와 분석]\n• 💡 창의적 파괴자: "${nodeA.content.substring(0,8)}"와 "${nodeB.content.substring(0,8)}"라는 완전히 이질적인 개념을 강제 cross-pollination하여 상식을 부순다.\n• 📈 비즈니스 아키텍트: 이 파편화된 자아 성찰을 1인 지식 독점 플랫폼의 킬러 콘텐츠 콘텐츠 비즈니스 파이프라인으로 전환.\n• 🔍 제1원리 분석가: 인간이 두 사유를 부딪히려는 근본적 욕망의 최하단에는 논리적 공백을 아날로그적 서사로 메우려는 인과율 갈망이 존재함.\n• 🧵 실타래 연결자: 기존에 적재된 물리 법칙 노트와 오늘의 기상도 배지를 잇는 징검다리 구축.\n\n## 🔗 [의외의 연결성]\n보관소 안의 과거 기록인 \`[[Keigo_Higashino_논리적_알리바이_설계]]\` 노드와 상상 결속됩니다. 극단적인 인과관계 배치는 뇌세포에 강렬한 카타르시스를 준다는 점에서 두 사유의 메커니즘이 수렴합니다.\n\n## 🎨 [타래의 변주곡 (콘텐츠/사업 초안)]\n초단편 추리 기법을 가미한 1인 지식 SaaS 랜딩 페이지 기획 가설을 제시합니다. 사용자가 낙서를 던지면 4개 렌즈로 해체된 마크다운을 자동 배송하는 구조입니다.\n\n## 🧬 [진화의 마중물]\n🚀 "원일님이 지금 구상 중인 아이디어 중에서 가장 '논리적 인과관계'가 느슨하지만 가장 직관적으로 끌리는 영역은 어디인가요?"`;
+            }
+
+            document.getElementById("alchemy-result-text").innerText = draftText;
+        }
+
+        function buildMobileTagGuard(dataList) {
+            const guardBox = document.getElementById("mobile-tag-guard"); guardBox.innerHTML = "";
+            const tagMap = {};
+            dataList.forEach(item => {
+                if (item.tags) item.tags.forEach(t => {
+                    const clean = t.replace('#', '').trim();
+                    if (!tagMap[clean]) tagMap[clean] = []; tagMap[clean].push(item);
+                });
+            });
+            Object.keys(tagMap).forEach(tag => {
+                const box = document.createElement("div"); box.className = "mobile-tag-box";
+                box.innerHTML = `<div class="mobile-tag-title" onclick="inspectTagGroup('${tag}')" style="cursor:pointer;">#${tag} (${tagMap[tag].length})</div>`;
+                guardBox.appendChild(box);
+            });
+        }
+
+        function handleResponsiveGuard() {
+            if (window.innerWidth <= 768 && networkEngine) { networkEngine.setSize('0px', '0px'); }
+            else if (networkEngine) { networkEngine.setSize('100%', '100%'); networkEngine.redraw(); }
+        }
+
+        function handleThoughtClick(t) {
+            document.getElementById("inspect-default").style.display = "none";
+            const zone = document.getElementById("inspect-content-zone"); zone.style.display = "flex";
+            document.getElementById("hide-on-tag-mode").style.display = "block";
+            document.getElementById("inspector-title-label").innerText = "💬 선택된 사유 파편";
+            document.getElementById("view-thought").innerText = t.content;
+            document.getElementById("view-date").innerText = new Date(t.created_at).toLocaleString('ko-KR');
+            document.getElementById("view-comfort").innerText = t.comfort || "성찰 구절이 비어있습니다.";
+
+            const tagZone = document.getElementById("view-tags"); tagZone.innerHTML = "";
+            if (t.tags) t.tags.forEach(tag => {
+                const clean = tag.replace('#', ''); const badge = document.createElement("span");
+                badge.style.cssText = "font-size: 0.8rem; padding: 0.2rem 0.5rem; background: rgba(74,111,165,0.1); color: var(--accent-color); border-radius: 4px; font-weight: 500; cursor:pointer;";
+                badge.innerText = `#${clean}`;
+                badge.onclick = (e) => { e.stopPropagation(); inspectTagGroup(clean); };
+                tagZone.appendChild(badge);
+            });
+        }
+
+        function inspectTagGroup(tagName) {
+            document.getElementById("inspect-default").style.display = "none";
+            const zone = document.getElementById("inspect-content-zone"); zone.style.display = "flex";
+            document.getElementById("hide-on-tag-mode").style.display = "none";
+            document.getElementById("inspector-title-label").innerText = `🏷️ #${tagName} 관측 시간선 동기화 목록`;
+            
+            const matched = allThoughts.filter(item => item.tags && item.tags.some(t => t.replace('#', '').trim() === tagName));
+            const listContainer = document.getElementById("view-thought"); listContainer.innerHTML = "";
+            
+            matched.forEach(item => {
+                const div = document.createElement("div"); div.className = "related-thought-item";
+                div.innerHTML = `<strong>🕒 ${new Date(item.created_at).toLocaleDateString()}:</strong> ${item.content}`;
+                listContainer.appendChild(div);
+            });
+
+            const tagZone = document.getElementById("view-tags");
+            tagZone.innerHTML = "";
+            // 인스펙터 내부에 노출된 태그 리스트 클릭 시에도 다형성 필터가 연동되도록 재귀 결속
+            allThoughts.forEach(item => {
+                if(item.tags) item.tags.forEach(t => {
+                    const clean = t.replace('#','');
+                    if(clean === tagName && !tagZone.innerHTML.includes(clean)) {
+                        const badge = document.createElement("span");
+                        badge.style.cssText = "font-size: 0.8rem; padding: 0.2rem 0.5rem; background: rgba(230,126,34,0.1); color: #e67e22; border-radius: 4px; font-weight: bold; cursor:pointer;";
+                        badge.innerText = `#${clean}`;
+                        badge.onclick = () => inspectTagGroup(clean);
+                        tagZone.appendChild(badge);
+                    }
+                });
+            });
+        }
+
+        function closeAlchemyModal() { document.getElementById("alchemy-stage").style.display = "none"; }
+    </script>
 </body>
 </html>
