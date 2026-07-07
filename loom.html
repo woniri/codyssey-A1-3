@@ -1,0 +1,184 @@
+<!-- loom.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>타래 - 베틀</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .kanban-board { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem; }
+        .kanban-column { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; min-height: 400px; }
+        .column-header { font-weight: bold; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--border-color); display: flex; justify-content: space-between; }
+        .task-card { background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.8rem; margin-bottom: 0.8rem; cursor: grab; box-shadow: 0 2px 4px rgba(0,0,0,0.01); transition: transform 0.2s; }
+        .task-card:hover { transform: translateY(-2px); }
+        .task-actions { display: flex; gap: 0.3rem; margin-top: 0.5rem; justify-content: flex-end; }
+        .task-btn { background: none; border: 1px solid var(--border-color); color: var(--text-color); font-size: 0.75rem; padding: 0.2rem 0.4rem; border-radius: 4px; cursor: pointer; }
+        .task-btn:hover { background: var(--accent-color); color: white; }
+        @media (max-width: 768px) { .kanban-board { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">🧵 타래</a>
+            <ul class="nav-menu">
+                <li class="nav-item"><a href="index.html">실마리</a></li>
+                <li class="nav-item active"><a href="loom.html">베틀</a></li>
+                <li class="nav-item"><a href="vault.html">타래장</a></li>
+                <li class="nav-item"><a href="settings.html">설정</a></li>
+            </ul>
+            <button id="theme-toggle" class="theme-toggle-btn">🌙 다크 모드</button>
+        </div>
+    </nav>
+
+    <main class="main-container">
+        <!-- AI 프로젝트 신규 빌드 생성기 -->
+        <section class="card" style="margin-bottom: 2rem;">
+            <h3 style="margin-bottom: 0.5rem;">🌱 새 생각 직조하기</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">머릿속 아이디어를 던지면 제미나이가 바로 실행 가능한 태스크 조합으로 쪼개줍니다.</p>
+            <div style="display: flex; gap: 0.5rem;">
+                <input type="text" id="project-prompt" placeholder="예: 치앙마이 한 달 워케이션 코스 기획" style="flex:1; padding:0.8rem; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-color); color:var(--text-color);">
+                <button id="btn-weave" style="padding:0 1.5rem; background:var(--accent-color); color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">직조하기</button>
+            </div>
+        </section>
+
+        <!-- 현재 활성화된 프로젝트 대시보드 뷰 -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+            <h2 id="active-project-title">아직 엮이지 않은 생각들이에요</h2>
+            <span id="project-progress" style="font-size:0.9rem; color:var(--accent-color); font-weight:bold;">진행률: 0%</span>
+        </div>
+        <p id="active-project-roadmap" style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem; font-style:italic;"></p>
+
+        <!-- 3단 감성 칸반보드 -->
+        <div class="kanban-board">
+            <div class="kanban-column" id="col-strands">
+                <div class="column-header"><span>🌱 가닥 (할 일)</span><span class="count">0</span></div>
+                <div class="column-list" id="list-strands"></div>
+            </div>
+            <div class="kanban-column" id="col-weaving">
+                <div class="column-header"><span>✨ 엮는 중 (진행)</span><span class="count">0</span></div>
+                <div class="column-list" id="list-weaving"></div>
+            </div>
+            <div class="kanban-column" id="col-tapestry">
+                <div class="column-header"><span>🏆 완성 (완료)</span><span class="count">0</span></div>
+                <div class="column-list" id="list-tapestry"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/storage.js"></script>
+    <script src="js/app.js"></script>
+    
+    <!-- 베틀 전용 상호작용 클라이언트 스크립트 -->
+    <script>
+        let currentProject = null;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            loadLatestProject();
+            document.getElementById("btn-weave").addEventListener("click", weaveNewProject);
+        });
+
+        // 1. Supabase에서 가장 최근 생성된 프로젝트 바인딩
+        async function loadLatestProject() {
+            const { data, error } = await TaraeStorage.getProjects();
+            if (data && data.length > 0) {
+                renderProject(data[0]);
+            }
+        }
+
+        // 2. 신규 AI 프로젝트 직조 요청
+        async function weaveNewProject() {
+            const promptInput = document.getElementById("project-prompt");
+            const text = promptInput.value.trim();
+            if (!text) return alert("프로젝트로 발전시킬 생각을 적어주세요.");
+
+            const btn = document.getElementById("btn-weave");
+            btn.disabled = true;
+            btn.innerText = "계획 짜는 중...";
+
+            try {
+                const response = await fetch("/api/expand", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ content: text })
+                });
+                const aiPlan = await response.json();
+
+                if (aiPlan.error) throw new Error(aiPlan.error);
+
+                // Supabase에 저장 후 화면 갱신
+                const { data, error } = await TaraeStorage.insertProject(aiPlan.title, aiPlan.tasks, aiPlan.roadmap);
+                if (data) {
+                    renderProject(data[0]);
+                    promptInput.value = "";
+                }
+            } catch (err) {
+                alert(err.message || "오류가 발생했습니다.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "직조하기";
+            }
+        }
+
+        // 3. 프로젝트 칸반 화면 렌더링 시스템
+        function renderProject(project) {
+            currentProject = project;
+            document.getElementById("active-project-title").innerText = `❚ ${project.title}`;
+            document.getElementById("active-project-roadmap").innerText = `🎯 방향성: ${project.roadmap}`;
+
+            const lists = { strands: [], weaving: [], tapestry: [] };
+            project.tasks.forEach(t => { if (lists[t.status]) lists[t.status].push(t); });
+
+            // 각 컬럼 리셋 후 빌드
+            ['strands', 'weaving', 'tapestry'].forEach(status => {
+                const container = document.getElementById(`list-${status}`);
+                container.innerHTML = "";
+                lists[status].forEach(task => {
+                    const card = document.createElement("div");
+                    card.className = "task-card";
+                    card.innerHTML = `
+                        <div>${task.text}</div>
+                        <div class="task-actions">
+                            ${status !== 'strands' ? `<button class="task-btn" onclick="moveTask('${task.id}', 'prev')">◀</button>` : ''}
+                            ${status !== 'tapestry' ? `<button class="task-btn" onclick="moveTask('${task.id}', 'next')">▶</button>` : ''}
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+                // 상단 카운트 동기화
+                container.previousElementSibling.querySelector(".count").innerText = lists[status].length;
+            });
+
+            // 진행률 계산 계산 (완료 수 / 전체 수)
+            const total = project.tasks.length;
+            const done = lists.tapestry.length;
+            const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+            document.getElementById("project-progress").innerText = `진행률: ${percent}%`;
+        }
+
+        // 4. 순수 바닐라 클릭 제어 상태 전이 상태 전이 로직
+        async function moveTask(taskId, direction) {
+            if (!currentProject) return;
+            const statusOrder = ['strands', 'weaving', 'tapestry'];
+            
+            const updatedTasks = currentProject.tasks.map(task => {
+                if (task.id === taskId) {
+                    let currIdx = statusOrder.indexOf(task.status);
+                    let nextIdx = direction === 'next' ? currIdx + 1 : currIdx - 1;
+                    if (nextIdx >= 0 && nextIdx < statusOrder.length) {
+                        task.status = statusOrder[nextIdx];
+                    }
+                }
+                return task;
+            });
+
+            const { data, error } = await TaraeStorage.updateProjectTasks(currentProject.id, updatedTasks);
+            if (data) renderProject(data[0]);
+        }
+    </script>
+</body>
+</html>
