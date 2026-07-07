@@ -1,0 +1,111 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>타래 - 실마리</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+</head>
+<body>
+
+    <!-- 공통 네비게이션 바 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">🧵 타래</a>
+            <ul class="nav-menu">
+                <li class="nav-item active"><a href="index.html">실마리</a></li>
+                <li class="nav-item"><a href="loom.html">베틀</a></li>
+                <li class="nav-item"><a href="vault.html">타래장</a></li>
+                <li class="nav-item"><a href="settings.html">설정</a></li>
+            </ul>
+            <button id="theme-toggle" class="theme-toggle-btn">🌙 다크 모드</button>
+        </div>
+    </nav>
+
+    <!-- 메인 대시보드 구역 -->
+    <main class="main-container">
+        
+        <!-- 생각 dump 입력창 섹션 -->
+        <section class="card" style="margin-bottom: 2rem; text-align: center; padding: 2.5rem 1.5rem;">
+            <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 1.1rem;" id="dynamic-placeholder">
+                "오늘 하루 고생 많았어요. 마음에 가득 찬 잔상들을 털어내 보세요."
+            </p>
+            <div style="display: flex; gap: 0.5rem; max-width: 700px; margin: 0 auto;">
+                <input type="text" id="thought-input" placeholder="무슨 생각이든, 한 가닥이면 충분해요" 
+                       style="flex: 1; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 1rem; background-color: var(--bg-color); color: var(--text-color);">
+                <button id="submit-thought-btn" style="padding: 0 1.5rem; background-color: var(--accent-color); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                    던지기
+                </button>
+            </div>
+        </section>
+
+        <!-- 오늘의 실마리 리포트 섹션 -->
+        <section class="card" style="margin-bottom: 2rem; border-left: 4px solid var(--accent-color);">
+            <h3 style="margin-bottom: 0.5rem;">🔮 오늘의 실마리</h3>
+            <p style="color: var(--text-muted);" id="insight-box">
+                최근 '탈출'과 '새로운 공간'에 대한 열망이 겹치고 있어요. 저장된 파편들을 엮어 새로운 프로젝트를 시작해 볼 타이밍일지도 모릅니다.
+            </p>
+        </section>
+
+        <!-- 하단 2분할 하이브리드 영역 -->
+        <div class="grid-2">
+            <!-- 내 머릿속 기상도 -->
+            <div class="card">
+                <h4 style="margin-bottom: 1rem;">☁️ 현재 내 머릿속 기상도</h4>
+                <div id="tag-cloud" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    <!-- 임시 더미 태그 배지 -->
+                    <span style="padding: 0.25rem 0.75rem; background: rgba(74,111,165,0.1); border-radius: 20px; font-size: 1.2rem; font-weight: bold; color: var(--accent-color);">#제주도</span>
+                    <span style="padding: 0.25rem 0.75rem; background: rgba(74,111,165,0.1); border-radius: 20px; font-size: 1rem; color: var(--accent-color);">#북카페</span>
+                    <span style="padding: 0.25rem 0.75rem; background: rgba(74,111,165,0.1); border-radius: 20px; font-size: 0.9rem; color: var(--text-muted);">#번아웃</span>
+                    <span style="padding: 0.25rem 0.75rem; background: rgba(74,111,165,0.1); border-radius: 20px; font-size: 1.1rem; color: var(--accent-color);">#사이드프로젝트</span>
+                </div>
+            </div>
+
+            <!-- 뜻밖의 공명 -->
+            <div class="card">
+                <h4 style="margin-bottom: 0.5rem;">⚡ 뜻밖의 공명</h4>
+                <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 1rem;" id="spark-box">
+                    "비 올 때 창가에서 책 읽는 공간이 있으면 좋겠다..." — 3달 전 오늘의 원일 님이 남긴 생각입니다.
+                </p>
+                <button style="background: none; border: 1px solid var(--accent-color); color: var(--accent-color); padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: 500;">
+                    이어서 생각하기 →
+                </button>
+            </div>
+        </div>
+
+        <!-- 실타래 상태 메트릭 -->
+        <section class="card" style="margin-top: 1.5rem; display: flex; justify-content: space-around; text-align: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+                <span style="font-size: 1.5rem; font-weight: bold; color: var(--accent-color);">12</span>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">풀려 있는 실가닥</p>
+            </div>
+            <div style="border-left: 1px solid var(--border-color); padding-left: 2rem;">
+                <span style="font-size: 1.5rem; font-weight: bold; color: var(--accent-color);">3</span>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">단단해진 타래</p>
+            </div>
+            <div style="border-left: 1px solid var(--border-color); padding-left: 2rem;">
+                <span style="font-size: 1.5rem; font-weight: bold; color: #e67e22;">4</span>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">먼지 쌓이는 실가닥</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 테마 제어 임시 자바스크립트 -->
+    <script>
+        const toggleBtn = document.getElementById('theme-toggle');
+        toggleBtn.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            if (currentTheme === 'dark') {
+                document.documentElement.removeAttribute('data-theme');
+                toggleBtn.innerText = '🌙 다크 모드';
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                toggleBtn.innerText = '☀️ 라이트 모드';
+            }
+        });
+    </script>
+</body>
+</html>

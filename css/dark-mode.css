@@ -1,0 +1,27 @@
+/* css/dark-mode.css */
+[data-theme="dark"] {
+    --bg-color: #121212;
+    --text-color: #e0e0e0;
+    --text-muted: #a0a0a0;
+    --card-bg: #1e1e1e;
+    --border-color: #333333;
+    --accent-color: #6ba4e8;
+    --accent-hover: #89bbf3;
+    --nav-bg: #1e1e1e;
+}
+
+/* 테마 토글 버튼 스타일 스타일 */
+.theme-toggle-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.theme-toggle-btn:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
