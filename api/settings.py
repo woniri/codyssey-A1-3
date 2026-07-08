@@ -1,61 +1,45 @@
-# api/settings.py
-import os
-import json
-from http.server import BaseHTTPRequestHandler
-from supabase import create_client, Client
+/* js/settings.js */
 
-# 서비스 롤 마스터키를 활용해 백엔드 인프라 제어
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+document.addEventListener("DOMContentLoaded", async () => {
+    await TaraeStorage.init();
+    const client = await TaraeStorage.getClient();
+    
+    const discordInput = document.getElementById("discord-webhook-url");
+    const slackInput = document.getElementById("slack-webhook-url");
+    const saveBtn = document.getElementById("save-settings-btn");
 
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        # 1. 쿼리 스트링에서 user_id 추출
-        from urlparse import urlparse, parse_qs
-        query_components = parse_qs(urlparse(self.path).query)
-        user_id = query_components.get("user_id", [""])[0]
+    // 📥 1. 페이지 열릴 때 수파베이스 고유 메타데이터에서 웹훅 주소 영구 풀링
+    async function loadUserSettings() {
+        const { data: { user }, error } = await client.auth.getUser();
+        if (user && user.user_metadata) {
+            if (discordInput) discordInput.value = user.user_metadata.discord_webhook || "";
+            if (slackInput) slackInput.value = user.user_metadata.slack_webhook || "";
+            console.log("🎯 [타래 인프라] 수파베이스 클라우드에서 웹훅 주소 동킹 완공");
+        }
+    }
 
-        if not user_id:
-            self.send_response(400)
-            self.end_headers()
-            return
+    // 📤 2. 저장 버튼 클릭 시 브라우저가 아닌 수파베이스 유저 메타데이터에 영구 각인
+    if (saveBtn) {
+        saveBtn.addEventListener("click", async () => {
+            saveBtn.disabled = true;
+            saveBtn.innerText = "클라우드에 각인 중...";
 
-        # 2. 유저 설정 정보 단건 조회
-        response = supabase.table("user_settings").select("*").eq("user_id", user_id).execute()
-        
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json')
-        self.end_headers()
-        
-        result_data = response.data[0] if response.data else {"notify_channel": "discord", "webhook_url": ""}
-        self.wfile.write(json.dumps(result_data).encode('utf-8'))
+            const { data, error } = await client.auth.updateUser({
+                data: {
+                    discord_webhook: discordInput ? discordInput.value.trim() : "",
+                    slack_webhook: slackInput ? slackInput.value.trim() : ""
+                }
+            });
 
-    def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-        req_body = json.loads(post_data.decode('utf-8'))
-        
-        user_id = req_body.get("user_id")
-        channel = req_body.get("channel", "discord")
-        webhook_url = req_body.get("url", "").strip()
+            if (error) {
+                alert("❌ 인프라 영구 저장 실패: " + error.message);
+            } else {
+                alert("🔒 수파베이스 클라우드 세포에 웹훅 주소가 영구 각인되었습니다. 로그아웃해도 유지됩니다!");
+            }
+            saveBtn.disabled = false;
+            saveBtn.innerText = "설정 저장";
+        });
+    }
 
-        try:
-            # 3. 데이터가 존재하면 업데이트, 없으면 신규 인서트 (Upsert)
-            response = supabase.table("user_settings").upsert({
-                "user_id": user_id,
-                "notify_channel": channel,
-                "webhook_url": webhook_url,
-                "updated_at": "now()"
-            }).execute()
-
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True}).encode('utf-8'))
-
-        except Exception as e:
-            self.send_response(500)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+    loadUserSettings();
+});
