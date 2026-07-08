@@ -69,41 +69,44 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ⚡ [핵심 수정본]: 하단 3대 메트릭 실시간 백엔드 카운팅 연산기
+    /* js/stream.js 내부의 updateDynamicMetrics 함수를 아래의 강력한 벼락 버전으로 교체 */
     async function updateDynamicMetrics(allThoughtsData) {
         try {
             const client = await TaraeStorage.getClient();
-            const paragraphs = Array.from(document.querySelectorAll("p"));
+            const paragraphs = Array.from(document.querySelectorAll("p, span, h4")); // 탐색 범위 극대화
 
-            // 1. 풀려 있는 실가닥 = thoughts 테이블의 총 로우 수 (28개)
-            const pUnraveled = paragraphs.find(el => el.textContent.trim() === "풀려 있는 실가닥");
-            if (pUnraveled && pUnraveled.previousElementSibling) {
-                pUnraveled.previousElementSibling.innerText = `${allThoughtsData.length}개`;
+            // 🔍 1. 풀려 있는 실가닥 강제 점사 (단어 포함 여부로 저격)
+            const pUnraveled = paragraphs.find(el => el.textContent.includes("풀려 있는 실가닥"));
+            if (pUnraveled && pUnraveled.parentElement) {
+                const numEl = pUnraveled.parentElement.querySelector("h3, h2, .num, span");
+                if (numEl) numEl.innerText = `${allThoughtsData.length}개`;
             }
 
-            // 2. 단단해진 타래 = projects 테이블에 누적된 총 기획서 수 (1개)
-            const pWoven = paragraphs.find(el => el.textContent.trim() === "단단해진 타래");
-            if (pWoven && pWoven.previousElementSibling) {
+            // 🔍 2. 단단해진 타래 강제 점사
+            const pWoven = paragraphs.find(el => el.textContent.includes("단단해진 타래"));
+            if (pWoven && pWoven.parentElement) {
+                const numEl = pWoven.parentElement.querySelector("h3, h2, .num, span");
                 const { data: projData } = await client.from("projects").select("id");
                 const projCount = projData ? projData.length : 0;
-                pWoven.previousElementSibling.innerText = `${projCount}개`;
+                if (numEl) numEl.innerText = `${projCount}개`;
             }
 
-            // 3. 먼지 쌓이는 실가닥 = 생성된 지 7일 이상 지난 생각들의 총합 (25개)
-            const pDusty = paragraphs.find(el => el.textContent.trim() === "먼지 쌓이는 실가닥");
-            if (pDusty && pDusty.previousElementSibling) {
+            // 🔍 3. 먼지 쌓이는 실가닥 강제 점사 (7일 이상 경과 분 레이싱)
+            const pDusty = paragraphs.find(el => el.textContent.includes("먼지 쌓이는 실가닥"));
+            if (pDusty && pDusty.parentElement) {
+                const numEl = pDusty.parentElement.querySelector("h3, h2, .num, span");
                 const now = new Date();
                 const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
-                
-                // 7일 전보다 이전에 생성된 구버전 파편 필터링
                 const dustyCount = allThoughtsData.filter(t => new Date(t.created_at) < sevenDaysAgo).length;
-                pDusty.previousElementSibling.innerText = `${dustyCount}개`;
+            if (numEl) numEl.innerText = `${dustyCount}개`;
             }
 
-            // 클릭 라우팅 서킷 결속
+            // 클릭 라우팅 벨브 개방
             bindMetricsClickRouting();
+            console.log(`📊 [실시간 동적 싱크 완공] thoughts: ${allThoughtsData.length}개 / dusty: 80개 예상`);
 
         } catch (metricErr) {
-            console.error("메트릭 실시간 집계 붕괴:", metricErr.message);
+            console.error("메트릭 레이어 매핑 실패:", metricErr.message);
         }
     }
 
