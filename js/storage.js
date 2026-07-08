@@ -178,7 +178,12 @@ const TaraeStorage = {
     async signOut() {
         const client = await this.getClient();
         if (client) await client.auth.signOut();
-        localStorage.clear();
+        // 발견한 localStorage.clear(); 를 지우고 이걸로 대체
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith("sb-") || key.includes("supabase")) {
+                localStorage.removeItem(key);
+            }
+        });
         sessionStorage.clear();
         location.reload();
     }
