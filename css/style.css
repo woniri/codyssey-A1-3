@@ -112,3 +112,39 @@ body {
         margin: 1rem auto;
     }
 }
+
+/* ==========================================================================
+   🧵 타래 안전 시스템: 기존 레이아웃을 파괴하지 않는 모바일 네비게이션 가드
+   ========================================================================== */
+
+/* 상단 Navbar 메뉴 리스트가 모바일 폭에서도 절대 밑으로 꺾이지 않도록 고정 */
+.navbar ul, 
+.nav-menu, 
+nav ul {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    flex-direction: row !important;
+    gap: 0.8rem !important; /* 모바일 전용 압축 폭 조율 */
+}
+
+/* 메뉴 내부 한글 단어가 쪼개져서 한 글자씩 떨어지는 인지 오류 차단 */
+.navbar a, 
+.nav-item a, 
+nav a {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    display: inline-block !important;
+}
+
+/* 📱 768px 이하 모바일 전용 미세 폰트 스케일링 */
+@media (max-width: 768px) {
+    .navbar a, 
+    .nav-item a, 
+    nav a {
+        font-size: 0.85rem !important;
+        letter-spacing: -0.02rem !important;
+    }
+    .logo {
+        font-size: 1.05rem !important;
+    }
+}
