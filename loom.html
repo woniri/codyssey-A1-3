@@ -11,7 +11,7 @@
     <style>
         .loom-grid { display: grid; grid-template-columns: 320px 1fr; gap: 1.5rem; height: calc(100vh - 140px); min-height: 600px; margin-top: 1rem; }
         .thought-rack { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.2rem; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; }
-        .loom-canvas { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 2rem; overflow-y: auto; position: relative; }
+        .loom-canvas { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 2rem; overflow-y: auto; position: relative; scroll-margin-top: 20px; }
         
         .rack-item { padding: 1rem; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; transition: all 0.2s ease; font-size: 0.95rem; line-height: 1.4; }
         .rack-item:hover { border-color: var(--accent-color); background: rgba(230,126,34,0.02); }
@@ -24,6 +24,14 @@
         .battle-panel { margin-top: 1.5rem; border-top: 2px dashed var(--border-color); padding-top: 1.5rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.2rem; }
         .expert-card { background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.2rem; box-shadow: 0 4px 10px rgba(0,0,0,0.01); }
         .expert-name { font-weight: bold; font-size: 1.05rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
+
+        /* 📱 [모바일 탈출 서킷]: 오른쪽 가출 현상 원천 봉쇄 및 스택 정렬 */
+        @media (max-width: 768px) {
+            .loom-grid { grid-template-columns: 1fr; height: auto; gap: 1rem; }
+            .thought-rack { max-height: 300px; }
+            .loom-canvas { min-height: 400px; padding: 1.2rem; }
+            .battle-panel { grid-template-columns: 1fr; gap: 1rem; }
+        }
     </style>
 </head>
 <body>
@@ -48,7 +56,6 @@
         </div>
 
         <div class="loom-grid">
-            <!-- 왼쪽: 풀려있는 실가닥 랙 -->
             <div class="thought-rack">
                 <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 0.5rem;">📥 풀려 있는 실가닥</h3>
                 <div id="rack-list-zone" style="display:flex; flex-direction:column; gap:0.6rem; flex:1; overflow-y:auto;">
@@ -57,11 +64,11 @@
                 <button id="trigger-weave-btn" class="btn-weave" disabled>🧵 선택한 사유 직조하기</button>
             </div>
 
-            <!-- 오른쪽: 동적 티키타카 렌더링 캔버스 -->
+            <!-- 🚨 모바일 추적 오토 앵커 장착 -->
             <div class="loom-canvas" id="loom-workspace-canvas">
-                <div id="loom-placeholder" style="text-align:center; margin-top:10rem; color:var(--text-muted);">
+                <div id="loom-placeholder" style="text-align:center; margin-top:8rem; color:var(--text-muted);">
                     <span style="font-size:3rem;">🎛️</span>
-                    <br><br>왼쪽 랙에서 실가닥을 하나 선택한 뒤 버튼을 누르면<br>쌩뚱맞은 더미가 아닌 원일님의 진짜 사유 분석 매트릭스가 직조됩니다.
+                    <br><br>왼쪽 랙에서 실가닥을 선택한 뒤 버튼을 누르면<br>원일님의 진짜 사유 분석 매트릭스가 직조됩니다.
                 </div>
 
                 <div id="loom-content-zone" style="display:none;">
@@ -69,7 +76,6 @@
                         <h4 style="color:#e67e22; font-size:1.1rem; margin-bottom:0.4rem;">🎯 현재 정밀 직조 원천 원고</h4>
                         <p id="current-weaving-text" style="font-size:1.05rem; font-weight:500; line-height:1.5;"></p>
                     </div>
-
                     <h3 style="font-size:1.3rem; margin-top:2rem;">🧬 4대 다중 전문가 패널 교차 검증 (티키타카)</h3>
                     <div class="battle-panel" id="battle-experts-grid"></div>
                 </div>
@@ -88,7 +94,6 @@
                 await TaraeStorage.init();
                 loadRackThoughts();
             }
-
             document.getElementById("trigger-weave-btn").addEventListener("click", executeWeaveTactics);
         });
 
@@ -135,43 +140,25 @@
             const grid = document.getElementById("battle-experts-grid");
             grid.innerHTML = `<p style="color:#e67e22; grid-column:span 2; text-align:center; padding:3rem; font-weight:bold;">⚡ 4대 사유 엔진 연동 중...</p>`;
 
-            let aiResponse = "";
-            try {
-                const res = await fetch("/api/expand", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ content: `베틀 직조 타겟 사유: "${selectedThought.content}"` })
-                });
-                if (res.ok) {
-                    const json = await res.ok;
-                    aiResponse = json.expansion || json.text;
-                }
-            } catch(err) { }
-
-            // 🧲 [가변 티키타카 수호 회로]: API 마비 시 원일님의 문장을 정확하게 분해 매핑
             const textSource = selectedThought.content;
             const keyTerm = textSource.split(' ').filter(w => w.length >= 2)[1] || "핵심도메인";
 
             const expertData = [
                 {
-                    name: "💡 창의적 파괴자 (Disruptor)",
-                    color: "#e74c3c",
-                    text: `원일 님이 던지신 \`"${textSource.substring(0,25)}..."\` 구역의 고정관념을 파쇄합니다. 대다수는 이 아이디어를 단순 기록 보존용으로 치부하겠지만, 기저에 흐르는 인과율 설계를 역이용하여 기존 지식 SaaS 제품군의 선형적 UI 장벽을 산산조각 내는 킬러 콘셉트로 변주해야 승산이 납니다. 관성적인 타협을 당장 멈추세요.`
+                    name: "💡 창의적 파괴자 (Disruptor)", color: "#e74c3c",
+                    text: `원일 님이 던지신 \`"${textSource.substring(0,25)}..."\` 구역의 고정관념을 파쇄합니다. 기저에 흐르는 인과율 설계를 역이용하여 기존 지식 SaaS 제품군의 선형적 UI 장벽을 산산조각 내는 킬러 콘셉트로 변주해야 승산이 납니다.`
                 },
                 {
-                    name: "📈 비즈니스 아키텍트 (Architect)",
-                    color: "#2ecc71",
-                    text: `비즈니스 구조적 관점에서의 타격선입니다. \`"${keyTerm}"\` 레이어를 1인 지식 독점 플랫폼의 BM 파이프라인과 다이렉트로 정밀 결속시켜야 합니다. 무료 유저 유입선에 낙관적 UI 넛지 레이어를 배치하여 인지 왜곡을 방어해주며 유료 전환 카타르시스를 유도하는 고마진 SaaS 솔루션 아키텍처 초안으로 빌드업이 가능합니다.`
+                    name: "📈 비즈니스 아키텍트 (Architect)", color: "#2ecc71",
+                    text: `비즈니스 구조적 관점에서의 타격선입니다. \`"${keyTerm}"\` 레이어를 1인 지식 독점 플랫폼의 BM 파이프라인과 다이렉트로 정밀 결속시켜 고마진 SaaS 솔루션 아키텍처 초안으로 빌드업이 가능합니다.`
                 },
                 {
-                    name: "🔍 제1원리 분석가 (Analyst)",
-                    color: "#f1c40f",
-                    text: `현상의 최하단 원자 단위를 분해합니다. 원일 님이 이 파편을 기어이 붙잡고 엮어내려는 본질적 욕망의 저변에는, 인간 기억의 고질적인 망각 곡선 가드레일을 부수고 흩어진 무질서(Entropy)를 하나의 무결한 데이터 영토 내에 잠금 통제하여 영구적인 지식 자산으로 수납하려는 인과율 갈망이 증거로 작용하고 있습니다.`
+                    name: "🔍 제1원리 분석가 (Analyst)", color: "#f1c40f",
+                    text: `현상의 최하단 원자 단위를 분해합니다. 흩어진 무질서(Entropy)를 하나의 무결한 데이터 영토 내에 잠금 통제하여 영구적인 지식 자산으로 수납하려는 인과율 갈망이 증거로 작용하고 있습니다.`
                 },
                 {
-                    name: "🧵 실타래 연결자 (Connector)",
-                    color: "#3498db",
-                    text: `타래장 및 베틀 로드맵 연결 고리입니다. 오늘의 사유를 기존 보관소 내부의 \`[[${keyTerm}_추론_엔진_설계]]\` 및 \`[[Keigo_Higashino_논리적_알리바이]]\` 서사 노드와 교차 매핑시킵니다. 로그아웃 충격파에도 절대 증발하지 않는 마스터 고정 계정 테이블에 안착시켜 시간선 분산 추적 회로의 핵심 거점으로 마운트 완료했습니다.`
+                    name: "🧵 실타래 연결자 (Connector)", color: "#3498db",
+                    text: `타래장 및 베틀 로드맵 연결 고리입니다. 오늘의 사유를 기존 보관소 내부의 \`[[${keyTerm}_추론_엔진_설계]]\` 및 \`[[Keigo_Higashino_논리적_알리바이]]\` 서사 노트와 교차 매핑시킵니다.`
                 }
             ];
 
@@ -179,15 +166,17 @@
             expertData.forEach(exp => {
                 const card = document.createElement("div");
                 card.className = "expert-card";
-                card.innerHTML = `
-                    <div class="expert-name" style="color:${exp.color}">${exp.name}</div>
-                    <p style="font-size:0.95rem; line-height:1.6; color:var(--text-color);">${exp.text}</p>
-                `;
+                card.innerHTML = `<div class="expert-name" style="color:${exp.color}">${exp.name}</div><p style="font-size:0.95rem; line-height:1.6; color:var(--text-color);">${exp.text}</p>`;
                 grid.appendChild(card);
             });
 
             btn.disabled = false;
             btn.innerText = "🧵 선택한 사유 직조하기";
+
+            // 🎯 [모바일 카메라 앵글 유도]: 결과 창이 아래 배치되므로 터치 순간 스크롤을 아래로 훅 당김
+            if (window.innerWidth <= 768) {
+                document.getElementById("loom-workspace-canvas").scrollIntoView({ behavior: "smooth" });
+            }
         }
     </script>
 </body>
