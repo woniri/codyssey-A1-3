@@ -14,13 +14,23 @@
         .form-group label { font-size: 0.95rem; font-weight: bold; color: var(--text-color); }
         .form-control { padding: 0.8rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg); color: var(--text-color); font-size: 0.95rem; }
         .form-control:focus { border-color: var(--accent-color); outline: none; }
-        
-        .btn-zone { display: flex; gap: 1rem; margin-top: 1rem; }
-        .btn-save { flex: 1; padding: 0.9rem; background: var(--accent-color); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; }
-        .btn-test { padding: 0.9rem 1.5rem; background: #e67e22; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; }
-        
-        .status-card { padding: 1rem; border-radius: 8px; background: rgba(74,111,165,0.04); border: 1px solid var(--border-color); font-size: 0.9rem; }
-        .future-pipeline { margin-top: 2rem; padding: 1.2rem; border: 1px dashed var(--border-color); border-radius: 12px; background: rgba(230,126,34,0.02); text-align: center; }
+
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; }
+        .schedule-row { display: flex; gap: 1rem; }
+        .schedule-row > div { flex: 1; }
+
+        .channel-card { border: 1px solid var(--border-color); border-radius: 10px; padding: 1rem; }
+        .channel-card.card-disabled-soon { opacity: 0.65; }
+        .channel-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+        .channel-card-title { font-weight: bold; }
+        .channel-active-toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer; }
+        .channel-active-toggle input { width: 18px; height: 18px; }
+        .channel-test-btn { padding: 0.5rem 0.9rem; background: #e67e22; color: white; border: none; border-radius: 6px; font-size: 0.85rem; cursor: pointer; }
+        .channel-test-btn:disabled { background: var(--border-color); cursor: not-allowed; }
+        .channel-future-msg { font-size: 0.85rem; color: var(--text-muted); }
+
+        .btn-save { width: 100%; padding: 0.9rem; background: var(--accent-color); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; margin-top: 0.5rem; }
+        .future-pipeline { margin-top: 0.5rem; padding: 0.9rem; border: 1px dashed var(--border-color); border-radius: 12px; background: rgba(230,126,34,0.02); font-size: 0.85rem; color: var(--text-muted); }
     </style>
 </head>
 <body>
@@ -45,40 +55,120 @@
         </header>
 
         <div class="settings-grid">
-            <!-- 수집 범위 선택 휠 -->
+
+            <!-- 자동발송 사용 여부 -->
+            <div class="toggle-row">
+                <div>
+                    <div style="font-weight:bold;">🔁 자동 발송</div>
+                    <div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.2rem;">설정한 주기마다, 아래에서 체크해둔 채널들로 자동 발송해요</div>
+                </div>
+                <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                    <input type="checkbox" id="auto-send-enabled" style="width:20px; height:20px;">
+                    <span id="auto-send-status-label">사용 안 함</span>
+                </label>
+            </div>
+
+            <div id="schedule-section" style="display:none; flex-direction:column; gap:1.2rem;">
+                <div class="form-group">
+                    <label>🕒 사유 수확 범위</label>
+                    <select id="harvest-scope" class="form-control">
+                        <option value="1">최근 1일</option>
+                        <option value="7" selected>최근 1주</option>
+                        <option value="30">최근 1달</option>
+                        <option value="custom">직접 입력(일수)</option>
+                    </select>
+                    <input type="number" id="harvest-scope-custom" class="form-control" placeholder="예: 14 (일)" style="display:none;" min="1">
+                </div>
+
+                <div class="form-group">
+                    <label>📅 발송 주기</label>
+                    <div class="schedule-row">
+                        <div>
+                            <select id="send-frequency" class="form-control">
+                                <option value="daily">매일</option>
+                                <option value="weekly" selected>매주</option>
+                                <option value="monthly">매월</option>
+                            </select>
+                        </div>
+                        <div>
+                            <input type="time" id="send-time" class="form-control" value="09:00">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 발송 채널: 여러 개 동시 등록 + 발송 대상으로 여러 개 동시 선택 가능 -->
             <div class="form-group">
-                <label>🕒 사유 수확 범위 선택 (시간선 필터)</label>
-                <select id="harvest-period" class="form-control" style="cursor: pointer;">
-                    <option value="1">최근 1일 (24시간 동안의 사유)</option>
-                    <option value="7">최근 1주일간의 타래 수집</option>
-                    <option value="30" selected>최근 1달 (30일간의 축적분)</option>
-                    <option value="180">최근 6개월간의 거대 사유</option>
-                </select>
+                <label>📡 발송 채널 (여러 개를 동시에 등록하고, 발송에 쓸 채널도 여러 개 켤 수 있어요)</label>
+
+                <div class="channel-card" data-channel="discord">
+                    <div class="channel-card-header">
+                        <div class="channel-card-title">💬 Discord</div>
+                        <label class="channel-active-toggle">
+                            <input type="checkbox" class="channel-active-checkbox" data-channel="discord">
+                            발송에 포함
+                        </label>
+                    </div>
+                    <input type="text" class="form-control channel-webhook-input" data-channel="discord" placeholder="https://discord.com/api/webhooks/...">
+                    <div style="margin-top:0.6rem; text-align:right;">
+                        <button class="channel-test-btn" data-channel="discord">즉시 테스트 📡</button>
+                    </div>
+                </div>
+
+                <div class="channel-card" data-channel="slack">
+                    <div class="channel-card-header">
+                        <div class="channel-card-title">📟 Slack</div>
+                        <label class="channel-active-toggle">
+                            <input type="checkbox" class="channel-active-checkbox" data-channel="slack">
+                            발송에 포함
+                        </label>
+                    </div>
+                    <input type="text" class="form-control channel-webhook-input" data-channel="slack" placeholder="https://hooks.slack.com/services/...">
+                    <div style="margin-top:0.6rem; text-align:right;">
+                        <button class="channel-test-btn" data-channel="slack">즉시 테스트 📡</button>
+                    </div>
+                </div>
+
+                <div class="channel-card card-disabled-soon" data-channel="notion">
+                    <div class="channel-card-header">
+                        <div class="channel-card-title">📓 Notion</div>
+                        <label class="channel-active-toggle">
+                            <input type="checkbox" class="channel-active-checkbox" data-channel="notion" disabled>
+                            발송에 포함
+                        </label>
+                    </div>
+                    <div class="channel-future-msg">🚧 설정 항목이 좀 더 복잡해서 아직 준비 중이에요. 조금만 기다려주세요!</div>
+                </div>
+
+                <div class="channel-card card-disabled-soon" data-channel="gmail">
+                    <div class="channel-card-header">
+                        <div class="channel-card-title">✉️ Gmail</div>
+                        <label class="channel-active-toggle">
+                            <input type="checkbox" class="channel-active-checkbox" data-channel="gmail" disabled>
+                            발송에 포함
+                        </label>
+                    </div>
+                    <div class="channel-future-msg">🚧 설정 항목이 좀 더 복잡해서 아직 준비 중이에요. 조금만 기다려주세요!</div>
+                </div>
+
+                <div class="channel-card card-disabled-soon" data-channel="telegram">
+                    <div class="channel-card-header">
+                        <div class="channel-card-title">✈️ Telegram</div>
+                        <label class="channel-active-toggle">
+                            <input type="checkbox" class="channel-active-checkbox" data-channel="telegram" disabled>
+                            발송에 포함
+                        </label>
+                    </div>
+                    <div class="channel-future-msg">🚧 설정 항목이 좀 더 복잡해서 아직 준비 중이에요. 조금만 기다려주세요!</div>
+                </div>
             </div>
 
-            <!-- 디스코드 웹훅 도크 -->
-            <div class="form-group">
-                <label>💬 Discord Webhook URL 입력</label>
-                <input type="text" id="webhook-discord" class="form-control" placeholder="https://discord.com/api/webhooks/...">
-            </div>
+            <button class="btn-save" id="btn-settings-save">전체 설정 저장</button>
 
-            <!-- 슬랙 웹훅 도크 -->
-            <div class="form-group">
-                <label>📟 Slack Webhook URL 입력</label>
-                <input type="text" id="webhook-slack" class="form-control" placeholder="https://hooks.slack.com/services/...">
-            </div>
-
-            <!-- 하부 액션 인프라 단추 -->
-            <div class="btn-zone">
-                <button class="btn-test" id="btn-harvest-test">즉시 테스트 발송 📡</button>
-                <button class="btn-save" id="btn-settings-save">설정 및 주소 저장</button>
-            </div>
-
-            <!-- 🚀 로드맵 가드 배지 -->
             <div class="future-pipeline">
-                <span style="font-weight: bold; color: #e67e22; font-size: 0.9rem;">🔮 미래 연동 파이프라인 개발 로드맵</span>
+                <span style="font-weight: bold; color: #e67e22; font-size: 0.9rem;">🔮 참고</span>
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.4rem; line-height: 1.4;">
-                    텔레그램 봇 API 알림 연동 · Notion 데이터베이스 아카이브 페이지 생성 · Google Sheets 사유 로그 자동 적재 모듈이 추후 정밀 업데이트될 예정입니다.
+                    자동 발송 스케줄은 현재 설정만 저장되고, 실제 정기 자동 발송은 API/서버 무료 한도 관계로 잠시 멈춰둔 상태예요. 채널별 "즉시 테스트"로 연결 자체는 바로 확인할 수 있어요.
                 </p>
             </div>
         </div>
@@ -86,88 +176,145 @@
 
     <script src="js/storage.js"></script>
     <script src="js/app.js"></script>
-    
+
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            // 저장된 웹훅 주소 및 설정값 복원
-            document.getElementById("webhook-discord").value = localStorage.getItem("tarae_webhook_discord") || "";
-            document.getElementById("webhook-slack").value = localStorage.getItem("tarae_webhook_slack") || "";
-            document.getElementById("harvest-period").value = localStorage.getItem("tarae_harvest_period") || "30";
-
-            document.getElementById("btn-settings-save").addEventListener("click", saveWebhooks);
-            document.getElementById("btn-harvest-test").addEventListener("click", triggerHarvestTest);
-        });
-
-        function saveWebhooks() {
-            const discord = document.getElementById("webhook-discord").value.trim();
-            const slack = document.getElementById("webhook-slack").value.trim();
-            const period = document.getElementById("harvest-period").value;
-
-            localStorage.setItem("tarae_webhook_discord", discord);
-            localStorage.setItem("tarae_webhook_slack", slack);
-            localStorage.setItem("tarae_harvest_period", period);
-
-            alert("💾 외부 채널 연동 주소와 수확 주기가 로컬 환경에 영구 각인되었습니다.");
-            location.reload();
-        }
-
-        // 📡 디스코드 및 슬랙 실전 크로스 발송 엔진
-        async function triggerHarvestTest() {
-            const discordUrl = document.getElementById("webhook-discord").value.trim();
-            const slackUrl = document.getElementById("webhook-slack").value.trim();
-            const periodDays = parseInt(document.getElementById("harvest-period").value);
-
-            if (!discordUrl && !slackUrl) {
-                return alert("테스트 발송을 진행할 디스코드 또는 슬랙의 웹훅 주소를 최소 한 개 이상 입력해 주세요.");
+        document.addEventListener("DOMContentLoaded", async () => {
+            if (typeof TaraeStorage !== 'undefined') {
+                await TaraeStorage.init();
             }
 
-            const btn = document.getElementById("btn-harvest-test");
-            btn.disabled = true;
-            btn.innerText = "연금술 연산 중...";
+            document.getElementById("auto-send-enabled").addEventListener("change", (e) => {
+                document.getElementById("schedule-section").style.display = e.target.checked ? "flex" : "none";
+                document.getElementById("auto-send-status-label").innerText = e.target.checked ? "사용 함" : "사용 안 함";
+            });
+
+            document.getElementById("harvest-scope").addEventListener("change", (e) => {
+                document.getElementById("harvest-scope-custom").style.display = e.target.value === "custom" ? "block" : "none";
+            });
+
+            document.querySelectorAll(".channel-test-btn").forEach(btn => {
+                btn.addEventListener("click", () => triggerTestSend(btn.dataset.channel));
+            });
+
+            document.getElementById("btn-settings-save").addEventListener("click", saveAllSettings);
+
+            await loadSettings();
+        });
+
+        async function loadSettings() {
+            try {
+                const { data: settings } = await TaraeStorage.getSettings();
+                if (settings) {
+                    document.getElementById("auto-send-enabled").checked = !!settings.is_enabled;
+                    document.getElementById("schedule-section").style.display = settings.is_enabled ? "flex" : "none";
+                    document.getElementById("auto-send-status-label").innerText = settings.is_enabled ? "사용 함" : "사용 안 함";
+
+                    const scope = settings.harvest_scope || "7";
+                    if (["1", "7", "30"].includes(scope)) {
+                        document.getElementById("harvest-scope").value = scope;
+                    } else {
+                        document.getElementById("harvest-scope").value = "custom";
+                        document.getElementById("harvest-scope-custom").style.display = "block";
+                        document.getElementById("harvest-scope-custom").value = scope;
+                    }
+
+                    document.getElementById("send-frequency").value = settings.send_frequency || "weekly";
+                    document.getElementById("send-time").value = settings.send_time || "09:00";
+                }
+
+                // 채널별로 등록되어 있으면 그 값을 보여주고, 없으면 빈 칸으로
+                const { data: channels } = await TaraeStorage.getChannels();
+                (channels || []).forEach(ch => {
+                    const input = document.querySelector(`.channel-webhook-input[data-channel="${ch.channel}"]`);
+                    const checkbox = document.querySelector(`.channel-active-checkbox[data-channel="${ch.channel}"]`);
+                    if (input) input.value = ch.webhook_url || "";
+                    if (checkbox) checkbox.checked = !!ch.is_active;
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function getHarvestScopeValue() {
+            const scopeSelect = document.getElementById("harvest-scope").value;
+            if (scopeSelect === "custom") {
+                return document.getElementById("harvest-scope-custom").value.trim() || "7";
+            }
+            return scopeSelect;
+        }
+
+        async function saveAllSettings() {
+            const settings = {
+                is_enabled: document.getElementById("auto-send-enabled").checked,
+                harvest_scope: getHarvestScopeValue(),
+                send_frequency: document.getElementById("send-frequency").value,
+                send_time: document.getElementById("send-time").value
+            };
 
             try {
-                // 수파베이스에서 실제 데이터 추출 필터 가동
+                const { error: settingsError } = await TaraeStorage.saveSettings(settings);
+                if (settingsError) throw settingsError;
+
+                // 디스코드/슬랙 두 채널을 각각 독립적으로 저장 (동시에 둘 다 등록 가능)
+                const channelsToSave = ["discord", "slack"];
+                for (const ch of channelsToSave) {
+                    const url = document.querySelector(`.channel-webhook-input[data-channel="${ch}"]`).value.trim();
+                    const isActive = document.querySelector(`.channel-active-checkbox[data-channel="${ch}"]`).checked;
+                    const { error } = await TaraeStorage.saveChannel(ch, url, isActive);
+                    if (error) throw error;
+                }
+
+                alert("💾 설정이 저장되었어요.");
+            } catch (e) {
+                console.error(e);
+                alert("🌙 설정 저장 중 문제가 생겼어요. 다시 시도해봐 주세요.");
+            }
+        }
+
+        async function triggerTestSend(channel) {
+            const input = document.querySelector(`.channel-webhook-input[data-channel="${channel}"]`);
+            const webhookUrl = input ? input.value.trim() : "";
+
+            if (!webhookUrl) {
+                return alert("먼저 이 채널의 Webhook URL을 입력해주세요.");
+            }
+
+            const btn = document.querySelector(`.channel-test-btn[data-channel="${channel}"]`);
+            btn.disabled = true;
+            const originalText = btn.innerText;
+            btn.innerText = "발송 중...";
+
+            try {
+                const periodDays = parseInt(getHarvestScopeValue()) || 7;
                 const result = await TaraeStorage.getThoughts();
-                let filteredContentSummary = "현재 해당 선택 기간 내에 누적된 실시간 사유 파편이 존재하지 않아, 테스트 샌드박스 프로토콜 모형으로 발송을 대체합니다.";
-                
+                let summary = "최근 저장된 생각이 아직 없어요.";
+
                 if (result && result.data && result.data.length > 0) {
-                    const now = new Date();
-                    const cutoff = new Date(now.getTime() - (periodDays * 24 * 60 * 60 * 1000));
-                    
-                    const periodThoughts = result.data.filter(t => new Date(t.created_at) >= cutoff);
-                    if (periodThoughts.length > 0) {
-                        filteredContentSummary = periodThoughts.map((t, idx) => `[파편 ${idx+1}] ${t.content} (태그: ${t.tags?.join(', ')})`).join('\n');
+                    const cutoff = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
+                    const recent = result.data.filter(t => new Date(t.created_at) >= cutoff);
+                    if (recent.length > 0) {
+                        summary = recent.map((t, idx) => `${idx + 1}. ${t.content}`).join("\n");
                     }
                 }
 
-                // 4대 패널 논쟁 최종 조율 마크다운 본문 페이로드 조립
-                const markdownPayload = `# 🌌 [사유의 인하수 수확]: 최근 ${periodDays}일간의 지평 성찰\n\n## 🔍 [해체와 분석]\n• 💡 창의적 파괴자: 수집된 파편들을 교차 융합하여 기존 도메인의 문맥적 장벽을 강제 붕괴시킴.\n• 📈 비즈니스 아키텍트: 축적 데이터 수량 기반 1인 독립 지식 SaaS 비즈니스 고도화 가치 사슬 연동.\n• 🔍 제1원리 분석가: 원일님이 특정 주기마다 생각을 연쇄 수확하려는 본질적 이유는 망각 제어를 넘어 두뇌의 부하를 외부 인프라로 오프로딩하려는 생존 본능임.\n• 🧵 실타래 연결자: 기간 내 포획된 생각 조각들과 과거 노션 메모장의 지식 파이프라인을 관통하는 징검다리 구축.\n\n## 🔗 [의외의 연결성]\n과거 기억 저장소인 \`[[2026_개인_지식_프리미엄_시스템_설계]]\` 노드가 상상 연쇄 결속됩니다. 파편을 묶어 시각화하는 과정은 뇌세포에 강력한 통제 카타르시스를 부여합니다.\n\n## 🎨 [타래의 변주곡 (콘텐츠/사업 초안)]\n원일님의 생각을 요약 없이 디스코드 채널로 실시간 매립하는 개인 지식 발전소 비즈니스 모델 실험 가설을 전개합니다.\n\n## 🧬 [진화의 마중물]\n🚀 "최근 ${periodDays}일 동안 원일님의 사유 궤도에서 가장 무질서하게 튀어 오르고 있는 핵심 화두는 무엇인가요?"\n\n*(데이터 원천 소스 요약):\n${filteredContentSummary}*`;
+                const message = `🧵 [타래 테스트 발송 - ${channel}]\n최근 ${periodDays}일간의 생각 목록\n\n${summary}`;
 
-                // Discord 발송 시도
-                if (discordUrl) {
-                    await fetch(discordUrl, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ content: markdownPayload })
-                    });
-                }
+                const response = await fetch("/api/test_notify", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ channel, webhook_url: webhookUrl, message })
+                });
 
-                // Slack 발송 시도 (간단 마크다운 포맷팅 호환)
-                if (slackUrl) {
-                    await fetch(slackUrl, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: markdownPayload })
-                    });
-                }
+                const json = await response.json();
+                if (!response.ok || json.error) throw new Error(json.error || "발송 실패");
 
-                alert(`📡 [발송 성공]\n\n최근 ${periodDays}일간의 사유 파편 분석 데이터가 외부 채널로 정확하게 투사되었습니다! 디스코드나 슬랙 창을 확인해 보세요.`);
-
+                alert(`📡 ${channel} 테스트 발송 성공! 채널을 확인해보세요.`);
             } catch (err) {
+                console.error(err);
                 alert(`❌ 발송 실패: ${err.message}`);
             } finally {
                 btn.disabled = false;
-                btn.innerText = "즉시 테스트 발송 📡";
+                btn.innerText = originalText;
             }
         }
     </script>

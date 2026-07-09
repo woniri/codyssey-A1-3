@@ -99,6 +99,63 @@ const TaraeStorage = {
             .maybeSingle();
     },
 
+    async getSettings() {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: null, error: null };
+
+        return await client
+            .from("user_settings")
+            .select("*")
+            .eq("user_id", uid)
+            .maybeSingle();
+    },
+
+    async saveSettings(settings) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: null, error: { message: "로그인 상태가 아닙니다." } };
+
+        return await client
+            .from("user_settings")
+            .upsert({
+                user_id: uid,
+                is_enabled: settings.is_enabled,
+                harvest_scope: settings.harvest_scope,
+                send_frequency: settings.send_frequency,
+                send_time: settings.send_time,
+                updated_at: new Date().toISOString()
+            }, { onConflict: "user_id" });
+    },
+
+    // 🆕 채널별로 여러 개를 동시에 등록/조회 (디스코드+슬랙 동시에 등록 가능)
+    async getChannels() {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: [], error: null };
+
+        return await client
+            .from("user_notification_channels")
+            .select("*")
+            .eq("user_id", uid);
+    },
+
+    async saveChannel(channel, webhookUrl, isActive) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: null, error: { message: "로그인 상태가 아닙니다." } };
+
+        return await client
+            .from("user_notification_channels")
+            .upsert({
+                user_id: uid,
+                channel: channel,
+                webhook_url: webhookUrl,
+                is_active: isActive,
+                updated_at: new Date().toISOString()
+            }, { onConflict: "user_id,channel" });
+    },
+
     /* === [2] 베틀 프로젝트 (Projects) 제어 모듈 === */
     async getProjects() {
         const client = await this.getClient();
