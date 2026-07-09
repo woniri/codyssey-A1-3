@@ -167,7 +167,27 @@
             try {
                 const result = await TaraeStorage.getThoughts();
                 if (!result || result.error || !result.data || result.data.length === 0) return;
-                allThoughts = result.data;
+
+                let dataList = result.data;
+
+                // 🔗 실마리 홈의 하단 지표 클릭으로 넘어온 경우: 필터링된 화면만 보여줌
+                const filterType = sessionStorage.getItem("vault_filter_type");
+                if (filterType) {
+                    sessionStorage.removeItem("vault_filter_type");
+                    if (filterType === "projects") {
+                        dataList = dataList.filter(t => t.project_id);
+                    } else if (filterType === "stale") {
+                        dataList = dataList.filter(t => (new Date() - new Date(t.created_at)) > 14 * 24 * 60 * 60 * 1000);
+                    }
+                }
+
+                if (dataList.length === 0) {
+                    document.getElementById("canvas-galaxy").innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); text-align:center; padding:1rem;">🧵 아직 해당하는 생각이 없어요.</div>`;
+                    document.getElementById("mobile-tag-guard").innerHTML = `<div class="inspector-placeholder">아직 해당하는 생각이 없어요.</div>`;
+                    return;
+                }
+
+                allThoughts = dataList;
                 buildDesktopGalaxy(allThoughts);
                 buildMobileTagGuard(allThoughts);
                 handleResponsiveGuard();
@@ -176,6 +196,19 @@
                 if (sharedTag) {
                     sessionStorage.removeItem("vault_filter_tag"); 
                     setTimeout(() => { inspectTagGroup(sharedTag); }, 400); 
+                }
+
+                // 🔗 실마리 홈의 "뜻밖의 공명"에서 넘어온 경우: 해당 생각으로 바로 포커스
+                const focusId = sessionStorage.getItem("vault_focus_thought");
+                if (focusId) {
+                    sessionStorage.removeItem("vault_focus_thought");
+                    const target = allThoughts.find(t => String(t.id) === String(focusId));
+                    if (target) {
+                        setTimeout(() => {
+                            handleThoughtClick(target);
+                            if (networkEngine) networkEngine.focus(`thought_${target.id}`, { scale: 1.2, animation: true });
+                        }, 400);
+                    }
                 }
             } catch (err) { console.error(err); }
         }
@@ -299,28 +332,24 @@
             document.getElementById("alchemy-result-text").innerText = "🚀 타래 내부 다중 전문가 패널을 소집하여 생각을 재조합하는 중...";
             stage.style.display = "flex";
 
-            let draftText = "";
             try {
-                const response = await fetch("/api/expand", {
+                const response = await fetch("/api/connect", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ content: `A: "${nodeA.content}" / B: "${nodeB.content}"` })
+                    body: JSON.stringify({ text_a: nodeA.content, text_b: nodeB.content })
                 });
-                if (response.ok) {
-                    const json = await response.json();
-                    draftText = json.expansion || json.text || json.content;
-                }
-            } catch (e) { }
 
-            if (!draftText) {
-                const textA = nodeA.content; const textB = nodeB.content;
-                const wordA = textA.split(' ').filter(w => w.length >= 2)[0] || "사유A";
-                const wordB = textB.split(' ').filter(w => w.length >= 2)[0] || "사유B";
-                const todayStr = new Date().toLocaleDateString('ko-KR').replace(/ /g, '');
+                if (!response.ok) throw new Error("서버 응답 오류");
+                const json = await response.json();
+                if (json.error) throw new Error(json.error);
 
-                draftText = `# 🌌 [파편의 연금술]: ${todayStr} [${wordA}]와 [${wordB}]의 구조적 결속\n\n## 🔍 [해체와 분석]\n• 💡 **창의적 파괴자**: \`"${textA}"\` 사유와 \`"${textB}"\` 도메인은 본래 격리된 성단이었으나, 이 비선형적 충돌을 강제 교차 결합하는 순간 틈새가 벌어집니다.\n• 📈 **비즈니스 아키텍트**: \`"${wordA}"\`의 시스템적 인과율 설계를 \`"${wordB}"\`의 콘텐츠 문법과 엮어 마케팅 비용 제로의 1인 SaaS 모델을 구축합니다.\n• 🔍 **제1원리 분석가**: 두 개념을 부딪히려는 욕망의 저변에는 무질서한 파편을 하나의 무결한 인과관계로 통제하여 디지털 자산화하려는 본능이 있습니다.\n• 🧵 **실타래 연결자**: \`"${textA.substring(0,15)}..."\`와 \`"${textB.substring(0,15)}..."\`를 이어 로그아웃에도 증발하지 않는 영구 영토로 잠금 고정합니다.\n\n## 🔗 [의외의 연결성]\n옵시디언 저장소 내부의 \`[[${wordA}_제1원리_추론_아키텍처]]\` 및 \`[[${wordB}_서사적_알리바이_설계]]\` 노드와 상상 결속되어 뇌세포에 강렬한 카타르시스를 부여합니다.\n\n## 🎨 [타래의 변주곡 (콘텐츠/사업 초안)]\n1. **SaaS 변주**: 두서없는 생각을 던지면 4대 렌즈 패널이 분해하여 위키링크 파일로 자동 가공 배송하는 파이프라인 가설.\n2. **콘텐츠 변주**: \`"${wordA}"\`의 치밀함 기저에 \`"${wordB}"\`의 심리 넛지를 숨겨 이탈할 수 없게 만드는 지식형 콘텐츠 시놉시스.\n\n## 🧬 [진화의 마중물]\n🚀 "원일님, 지금 구상 중인 프리미엄 아키텍처 중에서 가장 논리적 연결은 느슨하지만, 본능적으로 거대하게 폭발할 것 같은 교차 영역은 어디인가요?"`;
+                const title = json.merged_title || "새로운 기획 초안";
+                const content = json.merged_content || "";
+                document.getElementById("alchemy-result-text").innerText = `# ${title}\n\n${content}`;
+            } catch (e) {
+                console.error(e);
+                document.getElementById("alchemy-result-text").innerText = "🌙 지금은 두 생각을 조합하지 못했어요. 잠시 후 다시 시도해봐 주세요.";
             }
-            document.getElementById("alchemy-result-text").innerText = draftText;
         }
 
         // 📊 [태그 다빈도순 정렬 내림차순 가동 조절 장치]

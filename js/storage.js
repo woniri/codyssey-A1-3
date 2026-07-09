@@ -85,6 +85,20 @@ const TaraeStorage = {
             .order("created_at", { ascending: false });
     },
 
+    async getDailyInsight() {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: null, error: null };
+
+        return await client
+            .from("daily_insights")
+            .select("*")
+            .eq("user_id", uid)
+            .order("generated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+    },
+
     /* === [2] 베틀 프로젝트 (Projects) 제어 모듈 === */
     async getProjects() {
         const client = await this.getClient();

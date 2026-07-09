@@ -10,41 +10,142 @@ async function loadDashboardMetrics() {
     if (!uid) return;
 
     // 1. 실제 생각 파편 및 프로젝트 데이터 긁어오기
-    const { data: thoughts } = await TaraeStorage.getThoughts();
-    const { data: projects } = await TaraeStorage.getProjects();
+    const { data: thoughtsRaw } = await TaraeStorage.getThoughts();
+    const { data: projectsRaw } = await TaraeStorage.getProjects();
+    const thoughts = thoughtsRaw || [];
+    const projects = projectsRaw || [];
 
-    const totalThoughts = thoughts ? thoughts.length : 0;
-    const totalProjects = projects ? projects.length : 0;
+    const pendingThoughts = thoughts.filter(t => !t.project_id);
+    const staleThoughts = thoughts.filter(t => (new Date() - new Date(t.created_at)) > 14 * 24 * 60 * 60 * 1000);
 
-    // 2. 메트릭 카운트 화면 동적 갱신 (더미 데이터 제거)
-    const pendingCount = thoughts ? thoughts.filter(t => !t.project_id).length : 0;
-    
-    // DOM 요소 매핑 및 렌더링
+    // 2. 메트릭 카운트 화면 동적 갱신 + 각 메트릭 클릭 시 다른 페이지로 연결
     const metricsContainer = document.querySelectorAll(".main-container section.card:last-of-type span");
+    const metricCards = document.querySelectorAll(".main-container section.card:last-of-type > div");
+
     if (metricsContainer.length === 3) {
-        metricsContainer[0].innerText = pendingCount; // 풀려 있는 실가닥
-        metricsContainer[1].innerText = totalProjects; // 단단해진 타래
-        // 업데이트가 2주 이상 멈춘 생각 카운트 (임시 계산 로직)
-        metricsContainer[2].innerText = thoughts ? thoughts.filter(t => new Date() - new Date(t.created_at) > 14*24*60*60*1000).length : 0;
+        metricsContainer[0].innerText = pendingThoughts.length; // 풀려 있는 실가닥
+        metricsContainer[1].innerText = projects.length;         // 단단해진 타래
+        metricsContainer[2].innerText = staleThoughts.length;    // 먼지 쌓이는 실가닥
     }
 
-    // 3. 실제 내 머릿속 기상도 태그 클라우드 동적 빌드
-    const tagCloud = document.getElementById("tag-cloud");
-    if (tagCloud && thoughts) {
-        tagCloud.innerHTML = "";
-        const allTags = [];
-        thoughts.forEach(t => { if(t.tags) allTags.push(...t.tags); });
-        
-        // 중복 제거 후 상위 4개 추출
-        const uniqueTags = [...new Set(allTags)].slice(0, 4);
-        if (uniqueTags.length === 0) {
-            tagCloud.innerHTML = "<span style='color:var(--text-muted); font-size:0.9rem;'>아직 정돈된 태그가 없습니다. 생각을 던져보세요!</span>";
-        }
-        uniqueTags.forEach(tag => {
-            const badge = document.createElement("span");
-            badge.style.cssText = "padding: 0.25rem 0.75rem; background: rgba(74,111,165,0.1); border-radius: 20px; font-size: 1rem; color: var(--accent-color); font-weight: 500;";
-            badge.innerText = `#${tag}`;
-            tagCloud.appendChild(badge);
+    if (metricCards.length === 3) {
+        // 풀려 있는 실가닥 → 베틀로 이동 (묶이지 않은 생각을 직조하러)
+        metricCards[0].style.cursor = "pointer";
+        metricCards[0].title = "베틀에서 풀려 있는 실가닥을 엮어보세요";
+        metricCards[0].addEventListener("click", () => { location.href = "loom.html"; });
+
+        // 단단해진 타래 → 타래장에서 프로젝트로 연결된 것만
+        metricCards[1].style.cursor = "pointer";
+        metricCards[1].title = "타래장에서 프로젝트로 엮인 생각만 보기";
+        metricCards[1].addEventListener("click", () => {
+            sessionStorage.setItem("vault_filter_type", "projects");
+            location.href = "vault.html";
         });
+
+        // 먼지 쌓이는 실가닥 → 타래장에서 오래된 것만
+        metricCards[2].style.cursor = "pointer";
+        metricCards[2].title = "타래장에서 오래 방치된 생각만 보기";
+        metricCards[2].addEventListener("click", () => {
+            sessionStorage.setItem("vault_filter_type", "stale");
+            location.href = "vault.html";
+        });
+    }
+
+    // 3. 내 머릿속 기상도: 태그 클라우드 (최대 15개, 빈도에 따라 크기·색, 클릭 시 타래장 연동)
+    buildTagCloud(thoughts);
+
+    // 4. 오늘의 실마리: daily_insights 테이블에서 캐시된 AI 인사이트 로드
+    loadDailyInsight();
+
+    // 5. 뜻밖의 공명: 과거 생각 하나를 무작위로 뽑아 보여주고, 클릭 시 타래장에서 바로 확인
+    buildResonance(thoughts);
+}
+
+function buildTagCloud(thoughts) {
+    const tagCloud = document.getElementById("tag-cloud");
+    if (!tagCloud) return;
+    tagCloud.innerHTML = "";
+
+    const freq = {};
+    thoughts.forEach(t => {
+        if (!t.tags) return;
+        t.tags.forEach(tag => {
+            const clean = tag.replace('#', '').trim();
+            if (!clean) return;
+            freq[clean] = (freq[clean] || 0) + 1;
+        });
+    });
+
+    const tagNames = Object.keys(freq);
+    if (tagNames.length === 0) {
+        tagCloud.innerHTML = "<span style='color:var(--text-muted); font-size:0.9rem;'>아직 정돈된 태그가 없습니다. 생각을 던져보세요!</span>";
+        return;
+    }
+
+    const shuffled = [...tagNames];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const selected = shuffled.slice(0, 15);
+    const maxFreq = Math.max(...selected.map(tag => freq[tag]));
+
+    selected.forEach(tag => {
+        const ratio = freq[tag] / maxFreq;
+        const fontSize = (0.85 + ratio * 0.9).toFixed(2);
+        const color = ratio > 0.66 ? 'var(--accent-color)' : (ratio > 0.33 ? '#6c8fc7' : 'var(--text-muted)');
+
+        const badge = document.createElement("span");
+        badge.style.cssText = `padding: 0.25rem 0.75rem; background: rgba(74,111,165,0.1); border-radius: 20px; font-size: ${fontSize}rem; color: ${color}; font-weight: 500; cursor: pointer;`;
+        badge.innerText = `#${tag}`;
+        badge.title = `${freq[tag]}개의 생각에 등장 · 클릭하면 타래장에서 모아보기`;
+        badge.addEventListener("click", () => {
+            sessionStorage.setItem("vault_filter_tag", tag);
+            location.href = "vault.html";
+        });
+        tagCloud.appendChild(badge);
+    });
+}
+
+async function loadDailyInsight() {
+    const insightBox = document.getElementById("insight-box");
+    if (!insightBox) return;
+
+    const fallback = "🌙 아직 오늘의 실마리가 준비되지 않았어요. 생각을 몇 개 더 던져보면, 내일은 새로운 통찰을 만날 수 있을 거예요.";
+
+    try {
+        const { data, error } = await TaraeStorage.getDailyInsight();
+        if (error || !data || !data.insight_text) {
+            insightBox.innerText = fallback;
+            return;
+        }
+        insightBox.innerText = data.insight_text;
+    } catch (e) {
+        insightBox.innerText = fallback;
+    }
+}
+
+function buildResonance(thoughts) {
+    const sparkBox = document.getElementById("spark-box");
+    const sparkBtn = document.getElementById("spark-continue-btn");
+    if (!sparkBox) return;
+
+    if (!thoughts || thoughts.length === 0) {
+        sparkBox.innerText = "🧵 아직 공명할 만한 지난 생각이 없어요. 첫 실마리를 던져보세요!";
+        if (sparkBtn) sparkBtn.style.display = "none";
+        return;
+    }
+
+    const picked = thoughts[Math.floor(Math.random() * thoughts.length)];
+    const daysAgo = Math.max(1, Math.floor((new Date() - new Date(picked.created_at)) / (1000 * 60 * 60 * 24)));
+
+    sparkBox.innerText = `"${picked.content}" — ${daysAgo}일 전의 생각입니다.`;
+
+    if (sparkBtn) {
+        sparkBtn.style.display = "inline-block";
+        sparkBtn.onclick = () => {
+            sessionStorage.setItem("vault_focus_thought", String(picked.id));
+            location.href = "vault.html";
+        };
     }
 }

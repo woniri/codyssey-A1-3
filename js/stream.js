@@ -72,23 +72,38 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
+    function showNotice(message, isError = true) {
+        const noticeEl = document.getElementById("thought-notice");
+        if (!noticeEl) return;
+        noticeEl.innerText = message;
+        noticeEl.style.color = isError ? "#e67e22" : "#2ecc71";
+        setTimeout(() => { if (noticeEl.innerText === message) noticeEl.innerText = ""; }, 3000);
+    }
+
     async function processThought() {
         const thoughtValue = thoughtInput.value.trim();
-        if (!thoughtValue) return;
+
+        if (!thoughtValue) {
+            showNotice("🧵 빈 손으로는 실을 던질 수 없어요. 짧게라도 한 가닥 적어주세요.");
+            thoughtInput.focus();
+            return;
+        }
+
+        // 🎯 낙관적 UI: 실제 저장을 기다리지 않고 먼저 "던져졌다"는 확신을 즉시 보여줌
+        thoughtInput.value = "";
+        triggerSuccessVisuals();
 
         try {
             if (typeof TaraeStorage !== 'undefined') {
-                // 수파베이스 영구 각인 선제 실행
-                await TaraeStorage.saveThought(thoughtValue, ["실시간포획"], "성공");
+                const { error } = await TaraeStorage.saveThought(thoughtValue, ["실시간포획"], "성공");
+                if (error) throw error;
             }
-            
-            triggerSuccessVisuals(); // 🎯 확실하게 저장이 완료되었음을 알리는 비주얼 격발
-            thoughtInput.value = ""; // 입력창 소독
-
             await loadSavedThoughts(); // 메트릭 카운트 즉시 동기화 리사이클
-
         } catch (error) {
             console.error(error);
+            // 저장이 실은 실패했다면, 조용히 되돌리고 사용자에게 알림 + 입력값 복구
+            showNotice("🌙 저장 중 실이 살짝 엉켰어요. 다시 한 번 던져봐 주세요.");
+            thoughtInput.value = thoughtValue;
         }
     }
 

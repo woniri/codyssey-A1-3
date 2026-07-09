@@ -125,7 +125,7 @@
 
         async function executeWeaveTactics() {
             if (!selectedThought) return;
-            
+
             const btn = document.getElementById("trigger-weave-btn");
             btn.disabled = true;
             btn.innerText = "베틀 세포 짜는 중...";
@@ -133,42 +133,43 @@
             document.getElementById("loom-placeholder").style.display = "none";
             const contentZone = document.getElementById("loom-content-zone");
             contentZone.style.display = "block";
-            
+
             const txtEl = document.getElementById("current-weaving-text");
             txtEl.innerText = selectedThought.content;
 
             const grid = document.getElementById("battle-experts-grid");
             grid.innerHTML = `<p style="color:#e67e22; grid-column:span 2; text-align:center; padding:3rem; font-weight:bold;">⚡ 4대 사유 엔진 연동 중...</p>`;
 
-            const textSource = selectedThought.content;
-            const keyTerm = textSource.split(' ').filter(w => w.length >= 2)[1] || "핵심도메인";
-
-            const expertData = [
-                {
-                    name: "💡 창의적 파괴자 (Disruptor)", color: "#e74c3c",
-                    text: `원일 님이 던지신 \`"${textSource.substring(0,25)}..."\` 구역의 고정관념을 파쇄합니다. 기저에 흐르는 인과율 설계를 역이용하여 기존 지식 SaaS 제품군의 선형적 UI 장벽을 산산조각 내는 킬러 콘셉트로 변주해야 승산이 납니다.`
-                },
-                {
-                    name: "📈 비즈니스 아키텍트 (Architect)", color: "#2ecc71",
-                    text: `비즈니스 구조적 관점에서의 타격선입니다. \`"${keyTerm}"\` 레이어를 1인 지식 독점 플랫폼의 BM 파이프라인과 다이렉트로 정밀 결속시켜 고마진 SaaS 솔루션 아키텍처 초안으로 빌드업이 가능합니다.`
-                },
-                {
-                    name: "🔍 제1원리 분석가 (Analyst)", color: "#f1c40f",
-                    text: `현상의 최하단 원자 단위를 분해합니다. 흩어진 무질서(Entropy)를 하나의 무결한 데이터 영토 내에 잠금 통제하여 영구적인 지식 자산으로 수납하려는 인과율 갈망이 증거로 작용하고 있습니다.`
-                },
-                {
-                    name: "🧵 실타래 연결자 (Connector)", color: "#3498db",
-                    text: `타래장 및 베틀 로드맵 연결 고리입니다. 오늘의 사유를 기존 보관소 내부의 \`[[${keyTerm}_추론_엔진_설계]]\` 및 \`[[Keigo_Higashino_논리적_알리바이]]\` 서사 노트와 교차 매핑시킵니다.`
-                }
+            const expertMeta = [
+                { key: "disruptor", name: "💡 창의적 파괴자 (Disruptor)", color: "#e74c3c" },
+                { key: "architect", name: "📈 비즈니스 아키텍트 (Architect)", color: "#2ecc71" },
+                { key: "analyst", name: "🔍 제1원리 분석가 (Analyst)", color: "#f1c40f" },
+                { key: "connector", name: "🧵 실타래 연결자 (Connector)", color: "#3498db" }
             ];
 
-            grid.innerHTML = "";
-            expertData.forEach(exp => {
-                const card = document.createElement("div");
-                card.className = "expert-card";
-                card.innerHTML = `<div class="expert-name" style="color:${exp.color}">${exp.name}</div><p style="font-size:0.95rem; line-height:1.6; color:var(--text-color);">${exp.text}</p>`;
-                grid.appendChild(card);
-            });
+            try {
+                const response = await fetch("/api/expand", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ content: selectedThought.content })
+                });
+
+                if (!response.ok) throw new Error("서버 응답 오류");
+                const aiData = await response.json();
+                if (aiData.error) throw new Error(aiData.error);
+
+                grid.innerHTML = "";
+                expertMeta.forEach(exp => {
+                    const card = document.createElement("div");
+                    card.className = "expert-card";
+                    const text = aiData[exp.key] || "이 관점에서는 아직 분석된 내용이 없어요.";
+                    card.innerHTML = `<div class="expert-name" style="color:${exp.color}">${exp.name}</div><p style="font-size:0.95rem; line-height:1.6; color:var(--text-color);">${text}</p>`;
+                    grid.appendChild(card);
+                });
+            } catch (err) {
+                console.error(err);
+                grid.innerHTML = `<p style="color:#e67e22; grid-column:span 2; text-align:center; padding:2rem;">🌙 지금은 4대 전문가 패널을 소집하지 못했어요. 잠시 후 다시 직조해봐 주세요.</p>`;
+            }
 
             btn.disabled = false;
             btn.innerText = "🧵 선택한 사유 직조하기";

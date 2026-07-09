@@ -17,11 +17,17 @@ class handler(BaseHTTPRequestHandler):
 
             model = genai.GenerativeModel("gemini-2.5-flash")
             prompt = (
-                "사용자가 던진 아이디어를 실행 가능한 구체적인 할 일 목록 3가지로 쪼개줘. "
-                "반드시 다음 JSON 배열 포맷으로만 응답해: [{\"title\": \"할일1\"}, {\"title\": \"할일2\"}, {\"title\": \"할일3\"}]"
+                "너는 4명의 서로 다른 전문가 패널이다. 아래 사용자의 생각 하나를 각자의 관점에서 "
+                "2~3문장으로 짧고 구체적으로 분석해라.\n"
+                "1) disruptor (창의적 파괴자): 기존 고정관념을 깨는 대담하고 파격적인 시각\n"
+                "2) architect (비즈니스 아키텍트): 사업/수익화 구조 관점\n"
+                "3) analyst (제1원리 분석가): 본질을 파고드는 논리적 분해\n"
+                "4) connector (실타래 연결자): 다른 생각이나 프로젝트와의 연결 가능성 제안\n"
+                "반드시 다음 JSON 포맷으로만 응답해: "
+                "{\"disruptor\": \"...\", \"architect\": \"...\", \"analyst\": \"...\", \"connector\": \"...\"}"
             )
-            
-            response = model.generate_content(f"{prompt}\n\n아이디어: {idea_text}")
+
+            response = model.generate_content(f"{prompt}\n\n사용자의 생각: {idea_text}")
             raw_text = response.text.strip().replace("```json", "").replace("```", "")
             ai_data = json.loads(raw_text)
 
