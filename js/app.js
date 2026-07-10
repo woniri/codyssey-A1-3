@@ -51,13 +51,26 @@ function injectAuthModal() {
         <div class="card" style="width: 100%; max-width: 400px; text-align: center; border: 1px solid var(--border-color);">
             <h2 style="color: var(--accent-color); margin-bottom: 0.5rem;">🧵 타래 시작하기</h2>
             <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">흩어진 생각을 엮는 공간</p>
-            
-            <input type="email" id="auth-email" placeholder="이메일 주소" style="width:100%; padding:0.8rem; margin-bottom:0.5rem; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-color);">
-            <input type="password" id="auth-password" placeholder="비밀번호" style="width:100%; padding:0.8rem; margin-bottom:1rem; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-color);">
-            
-            <button id="btn-login" style="width:100%; padding:0.8rem; background:var(--accent-color); color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:0.5rem;">로그인</button>
-            <button id="btn-signup" style="width:100%; padding:0.8rem; background:none; border:1px solid var(--border-color); color:var(--text-color); border-radius:6px; cursor:pointer; font-size:0.85rem;">데모 계정 가입하기</button>
+
+            <div id="auth-login-zone">
+                <input type="email" id="auth-email" placeholder="이메일 주소" style="width:100%; padding:0.8rem; margin-bottom:0.5rem; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-color);">
+                <input type="password" id="auth-password" placeholder="비밀번호" style="width:100%; padding:0.8rem; margin-bottom:0.5rem; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-color);">
+                <div style="text-align:right; margin-bottom:1rem;">
+                    <a href="#" id="link-forgot-password" style="font-size:0.8rem; color:var(--text-muted);">비밀번호를 잊으셨나요?</a>
+                </div>
+                <button id="btn-login" style="width:100%; padding:0.8rem; background:var(--accent-color); color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:0.5rem;">로그인</button>
+                <button id="btn-signup" style="width:100%; padding:0.8rem; background:none; border:1px solid var(--border-color); color:var(--text-color); border-radius:6px; cursor:pointer; font-size:0.85rem;">데모 계정 가입하기</button>
+            </div>
+
+            <div id="auth-reset-zone" style="display:none;">
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">가입하신 이메일로 비밀번호 재설정 링크를 보내드릴게요.</p>
+                <input type="email" id="reset-email" placeholder="이메일 주소" style="width:100%; padding:0.8rem; margin-bottom:1rem; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-color);">
+                <button id="btn-send-reset" style="width:100%; padding:0.8rem; background:var(--accent-color); color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:0.5rem;">재설정 링크 보내기</button>
+                <button id="btn-back-to-login" style="width:100%; padding:0.8rem; background:none; border:1px solid var(--border-color); color:var(--text-color); border-radius:6px; cursor:pointer; font-size:0.85rem;">로그인으로 돌아가기</button>
+            </div>
+
             <p id="auth-error" style="color:#e74c3c; font-size:0.85rem; margin-top:0.5rem; display:none;"></p>
+            <p id="auth-success" style="color:#2ecc71; font-size:0.85rem; margin-top:0.5rem; display:none;"></p>
         </div>
     `;
 
@@ -66,6 +79,46 @@ function injectAuthModal() {
     const emailInput = document.getElementById('auth-email');
     const cryptoInput = document.getElementById('auth-password');
     const errBox = document.getElementById('auth-error');
+    const successBox = document.getElementById('auth-success');
+
+    // 🔑 비밀번호 찾기 화면 전환
+    document.getElementById('link-forgot-password').addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('auth-login-zone').style.display = 'none';
+        document.getElementById('auth-reset-zone').style.display = 'block';
+        errBox.style.display = 'none';
+        successBox.style.display = 'none';
+        document.getElementById('reset-email').value = emailInput.value;
+    });
+
+    document.getElementById('btn-back-to-login').addEventListener('click', () => {
+        document.getElementById('auth-reset-zone').style.display = 'none';
+        document.getElementById('auth-login-zone').style.display = 'block';
+        errBox.style.display = 'none';
+        successBox.style.display = 'none';
+    });
+
+    document.getElementById('btn-send-reset').addEventListener('click', async () => {
+        const resetEmail = document.getElementById('reset-email').value;
+        const btn = document.getElementById('btn-send-reset');
+        btn.disabled = true;
+        btn.innerText = "발송 중...";
+
+        const { error } = await TaraeStorage.sendPasswordReset(resetEmail);
+
+        btn.disabled = false;
+        btn.innerText = "재설정 링크 보내기";
+
+        if (error) {
+            errBox.innerText = "발송 실패: " + error.message;
+            errBox.style.display = 'block';
+            successBox.style.display = 'none';
+        } else {
+            successBox.innerText = "📩 재설정 링크를 보냈어요. 메일함을 확인해주세요.";
+            successBox.style.display = 'block';
+            errBox.style.display = 'none';
+        }
+    });
 
     // 로그인 실행
     document.getElementById('btn-login').addEventListener('click', async () => {

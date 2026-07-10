@@ -40,6 +40,27 @@ const TaraeStorage = {
         return this.supabaseClient;
     },
 
+    // 🆕 비밀번호 재설정 메일 발송
+    async sendPasswordReset(email) {
+        const client = await this.getClient();
+        if (!client) return { error: { message: "인프라 연결에 실패했습니다." } };
+
+        const cleanEmail = (email || '').trim();
+        if (!cleanEmail) return { error: { message: "이메일을 입력해주세요." } };
+
+        return await client.auth.resetPasswordForEmail(cleanEmail, {
+            redirectTo: `${window.location.origin}/reset-password.html`
+        });
+    },
+
+    // 🆕 재설정 링크를 타고 들어온 뒤, 새 비밀번호로 변경
+    async updatePassword(newPassword) {
+        const client = await this.getClient();
+        if (!client) return { error: { message: "인프라 연결에 실패했습니다." } };
+
+        return await client.auth.updateUser({ password: newPassword });
+    },
+
     async getSession() {
         const client = await this.getClient();
         if (!client) return null;
