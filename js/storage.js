@@ -69,8 +69,22 @@ const TaraeStorage = {
                     comfort: comfort,
                     created_at: new Date().toISOString()
                 }
-            ]);
+            ])
+            .select();
         return { data, error };
+    },
+
+    // 🆕 AI 분류가 늦게 도착했을 때, 이미 저장된 생각의 태그/공감 문구만 조용히 갱신
+    async updateThoughtTags(thoughtId, tags, comfort) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { error: { message: "인증되지 않은 사용자입니다." } };
+
+        return await client
+            .from("thoughts")
+            .update({ tags, comfort })
+            .eq("id", thoughtId)
+            .eq("user_id", uid);
     },
 
     async getThoughts() {
@@ -154,6 +168,32 @@ const TaraeStorage = {
                 is_active: isActive,
                 updated_at: new Date().toISOString()
             }, { onConflict: "user_id,channel" });
+    },
+
+    // 🆕 생각 삭제 (본인 것만)
+    async deleteThought(thoughtId) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { error: { message: "인증되지 않은 사용자입니다." } };
+
+        return await client
+            .from("thoughts")
+            .delete()
+            .eq("id", thoughtId)
+            .eq("user_id", uid);
+    },
+
+    // 🆕 생각 내용 수정 (본인 것만)
+    async editThought(thoughtId, newContent) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { error: { message: "인증되지 않은 사용자입니다." } };
+
+        return await client
+            .from("thoughts")
+            .update({ content: newContent })
+            .eq("id", thoughtId)
+            .eq("user_id", uid);
     },
 
     /* === [2] 베틀 프로젝트 (Projects) 제어 모듈 === */

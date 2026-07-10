@@ -135,12 +135,16 @@ function buildTagCloud(thoughts) {
     const maxFreq = Math.max(...selected.map(tag => freq[tag]));
 
     selected.forEach(tag => {
-        const ratio = freq[tag] / maxFreq;
-        const fontSize = (0.85 + ratio * 0.9).toFixed(2);
+        const ratio = freq[tag] / maxFreq; // 0~1, 중요도(빈도) 비율
+        // 크기 차이는 아주 미세하게만 (0.85rem ~ 1.05rem) — 갑자기 확 커지는 느낌을 줄임
+        const fontSize = (0.85 + ratio * 0.2).toFixed(2);
+        // 중요도는 크기보다 배경 진하기와 글자 색으로 주로 표현
+        const bgAlpha = (0.06 + ratio * 0.16).toFixed(2);
         const color = ratio > 0.66 ? 'var(--accent-color)' : (ratio > 0.33 ? '#6c8fc7' : 'var(--text-muted)');
+        const fontWeight = ratio > 0.66 ? 600 : 500;
 
         const badge = document.createElement("span");
-        badge.style.cssText = `padding: 0.25rem 0.75rem; background: rgba(74,111,165,0.1); border-radius: 20px; font-size: ${fontSize}rem; color: ${color}; font-weight: 500; cursor: pointer;`;
+        badge.style.cssText = `padding: 0.3rem 0.8rem; background: rgba(74,111,165,${bgAlpha}); border-radius: 20px; font-size: ${fontSize}rem; color: ${color}; font-weight: ${fontWeight}; cursor: pointer;`;
         badge.innerText = `#${tag}`;
         badge.title = `${freq[tag]}개의 생각에 등장 · 클릭하면 타래장에서 모아보기`;
         badge.addEventListener("click", () => {

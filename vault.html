@@ -98,6 +98,17 @@
                     <div>
                         <div class="meta-label" id="inspector-title-label">💬 선택된 사유 파편</div>
                         <div class="meta-content" id="view-thought"></div>
+                        <div id="thought-edit-zone" style="display:none; margin-top:0.5rem;">
+                            <textarea id="thought-edit-input" style="width:100%; min-height:80px; padding:0.6rem; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-color); font-family:inherit; font-size:0.95rem;"></textarea>
+                        </div>
+                        <div id="thought-action-buttons" style="display:flex; gap:0.5rem; margin-top:0.6rem;">
+                            <button id="btn-edit-thought" style="flex:1; padding:0.5rem; background:none; border:1px solid var(--accent-color); color:var(--accent-color); border-radius:6px; cursor:pointer; font-size:0.85rem;">✏️ 수정</button>
+                            <button id="btn-delete-thought" style="flex:1; padding:0.5rem; background:none; border:1px solid #e74c3c; color:#e74c3c; border-radius:6px; cursor:pointer; font-size:0.85rem;">🗑️ 삭제</button>
+                        </div>
+                        <div id="thought-edit-save-buttons" style="display:none; gap:0.5rem; margin-top:0.6rem;">
+                            <button id="btn-save-edit" style="flex:1; padding:0.5rem; background:var(--accent-color); color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.85rem;">저장</button>
+                            <button id="btn-cancel-edit" style="flex:1; padding:0.5rem; background:none; border:1px solid var(--border-color); color:var(--text-color); border-radius:6px; cursor:pointer; font-size:0.85rem;">취소</button>
+                        </div>
                     </div>
                     <div id="hide-on-tag-mode">
                         <div class="meta-label">🕒 관측 시간선</div>
@@ -173,6 +184,12 @@
             document.getElementById("list-search-input").addEventListener("input", (e) => {
                 renderThoughtList(e.target.value);
             });
+
+            // ✏️🗑️ 생각 수정/삭제 버튼
+            document.getElementById("btn-edit-thought").addEventListener("click", startEditThought);
+            document.getElementById("btn-cancel-edit").addEventListener("click", cancelEditThought);
+            document.getElementById("btn-save-edit").addEventListener("click", saveEditThought);
+            document.getElementById("btn-delete-thought").addEventListener("click", deleteCurrentThought);
         });
 
         let isListView = false;
@@ -448,7 +465,10 @@
             else if (networkEngine) { networkEngine.setSize('100%', '100%'); networkEngine.redraw(); }
         }
 
+        let currentInspectedThought = null;
+
         function handleThoughtClick(t) {
+            currentInspectedThought = t;
             document.getElementById("inspect-default").style.display = "none";
             const zone = document.getElementById("inspect-content-zone"); zone.style.display = "flex";
             document.getElementById("hide-on-tag-mode").style.display = "block";
@@ -456,6 +476,12 @@
             document.getElementById("view-thought").innerText = t.content;
             document.getElementById("view-date").innerText = new Date(t.created_at).toLocaleString('ko-KR');
             document.getElementById("view-comfort").innerText = t.comfort || "성찰 구절이 비어있습니다.";
+
+            // 수정/삭제 버튼 영역을 기본(보기) 상태로 초기화
+            document.getElementById("view-thought").style.display = "block";
+            document.getElementById("thought-edit-zone").style.display = "none";
+            document.getElementById("thought-action-buttons").style.display = "flex";
+            document.getElementById("thought-edit-save-buttons").style.display = "none";
 
             const tagZone = document.getElementById("view-tags"); tagZone.innerHTML = "";
             if (t.tags) t.tags.forEach(tag => {
@@ -469,6 +495,87 @@
             // ⚡ 모바일 자동 화면 앵글 하강 밸브
             if (window.innerWidth <= 768) {
                 document.getElementById("node-inspector").scrollIntoView({ behavior: "smooth" });
+            }
+        }
+
+        function startEditThought() {
+            if (!currentInspectedThought) return;
+            document.getElementById("view-thought").style.display = "none";
+            document.getElementById("thought-edit-zone").style.display = "block";
+            document.getElementById("thought-action-buttons").style.display = "none";
+            document.getElementById("thought-edit-save-buttons").style.display = "flex";
+            const input = document.getElementById("thought-edit-input");
+            input.value = currentInspectedThought.content;
+            input.focus();
+        }
+
+        function cancelEditThought() {
+            document.getElementById("view-thought").style.display = "block";
+            document.getElementById("thought-edit-zone").style.display = "none";
+            document.getElementById("thought-action-buttons").style.display = "flex";
+            document.getElementById("thought-edit-save-buttons").style.display = "none";
+        }
+
+        async function saveEditThought() {
+            if (!currentInspectedThought) return;
+            const newContent = document.getElementById("thought-edit-input").value.trim();
+            if (!newContent) {
+                alert("빈 내용으로는 수정할 수 없어요.");
+                return;
+            }
+
+            const btn = document.getElementById("btn-save-edit");
+            btn.disabled = true;
+            btn.innerText = "저장 중...";
+
+            try {
+                const { error } = await TaraeStorage.editThought(currentInspectedThought.id, newContent);
+                if (error) throw error;
+
+                currentInspectedThought.content = newContent;
+                const idx = allThoughts.findIndex(t => t.id === currentInspectedThought.id);
+                if (idx !== -1) allThoughts[idx].content = newContent;
+
+                document.getElementById("view-thought").innerText = newContent;
+                cancelEditThought();
+                buildDesktopGalaxy(allThoughts);
+                buildMobileTagGuard(allThoughts);
+            } catch (e) {
+                console.error(e);
+                alert("🌙 수정 중 문제가 생겼어요. 다시 시도해봐 주세요.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "저장";
+            }
+        }
+
+        async function deleteCurrentThought() {
+            if (!currentInspectedThought) return;
+            const confirmed = confirm("이 생각을 정말 삭제할까요? 삭제하면 되돌릴 수 없어요.");
+            if (!confirmed) return;
+
+            const btn = document.getElementById("btn-delete-thought");
+            btn.disabled = true;
+            btn.innerText = "삭제 중...";
+
+            try {
+                const { error } = await TaraeStorage.deleteThought(currentInspectedThought.id);
+                if (error) throw error;
+
+                allThoughts = allThoughts.filter(t => t.id !== currentInspectedThought.id);
+                currentInspectedThought = null;
+
+                document.getElementById("inspect-default").style.display = "block";
+                document.getElementById("inspect-content-zone").style.display = "none";
+
+                buildDesktopGalaxy(allThoughts);
+                buildMobileTagGuard(allThoughts);
+                if (isListView) renderThoughtList(document.getElementById("list-search-input").value);
+            } catch (e) {
+                console.error(e);
+                alert("🌙 삭제 중 문제가 생겼어요. 다시 시도해봐 주세요.");
+                btn.disabled = false;
+                btn.innerText = "🗑️ 삭제";
             }
         }
 
