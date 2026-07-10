@@ -166,6 +166,14 @@
                     card.innerHTML = `<div class="expert-name" style="color:${exp.color}">${exp.name}</div><p style="font-size:0.95rem; line-height:1.6; color:var(--text-color);">${text}</p>`;
                     grid.appendChild(card);
                 });
+
+                // 🎯 실행 가능한 한 걸음: 4개 관점과 별개로, 지금 당장 해볼 수 있는 작은 행동 하나
+                if (aiData.next_step) {
+                    const stepCard = document.createElement("div");
+                    stepCard.style.cssText = "grid-column: span 2; margin-top: 0.5rem; padding: 1rem; border: 1px dashed var(--accent-color); border-radius: 8px; background: rgba(74,111,165,0.05);";
+                    stepCard.innerHTML = `<div style="font-weight:bold; color:var(--accent-color); margin-bottom:0.3rem; font-size:0.9rem;">🎯 지금 해볼 수 있는 작은 한 걸음</div><p style="font-size:0.95rem; color:var(--text-color);">${aiData.next_step}</p>`;
+                    grid.appendChild(stepCard);
+                }
             } catch (err) {
                 console.error(err);
                 grid.innerHTML = `<p style="color:#e67e22; grid-column:span 2; text-align:center; padding:2rem;">🌙 지금은 4대 전문가 패널을 소집하지 못했어요. 잠시 후 다시 직조해봐 주세요.</p>`;

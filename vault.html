@@ -427,9 +427,10 @@
                 const json = await response.json();
                 if (json.error) throw new Error(json.error);
 
-                const title = json.merged_title || "새로운 기획 초안";
+                const title = json.merged_title || "새로운 연결점";
                 const content = json.merged_content || "";
-                document.getElementById("alchemy-result-text").innerText = `# ${title}\n\n${content}`;
+                const nextStep = json.next_step ? `\n\n🎯 지금 해볼 수 있는 작은 한 걸음\n${json.next_step}` : "";
+                document.getElementById("alchemy-result-text").innerText = `# ${title}\n\n${content}${nextStep}`;
             } catch (e) {
                 console.error(e);
                 document.getElementById("alchemy-result-text").innerText = "🌙 지금은 두 생각을 조합하지 못했어요. 잠시 후 다시 시도해봐 주세요.";

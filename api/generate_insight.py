@@ -24,17 +24,21 @@ class handler(BaseHTTPRequestHandler):
 
             # 2. 유저별 최근 생각을 기반으로 일일 인사이트 리포트 생성 및 캐싱
             for uid in user_ids:
-                thoughts = supabase.table("thoughts").select("content").eq("user_id", uid).limit(10).execute()
+                # 🔧 실제로 "최근" 것을 가져오도록 정렬 추가 (기존엔 정렬이 없어서 임의의 10개였음)
+                thoughts = supabase.table("thoughts").select("content").eq("user_id", uid).order("created_at", desc=True).limit(10).execute()
                 if not thoughts.data:
                     continue
                 
                 context = "\n".join([f"- {t['content']}" for t in thoughts.data])
                 
                 prompt = (
-                    "너는 개인 생각 오케스트레이터 '타래'의 메인 분석가다. "
+                    "너는 개인 생각 정리 도구 '타래'의 요약 담당이다. "
                     f"사용자의 최근 생각 파편들:\n{context}\n\n"
-                    "위 생각을 종합적으로 분석하여 사용자가 현재 어떤 맥락이나 주제에 몰두해 있는지, "
-                    "혹은 어떤 심리 상태(번아웃, 열망 등)인지 간결하고 따뜻하게 한 줄로 요약해라."
+                    "위 생각들에서 반복되거나 눈에 띄는 주제·관심사를 한 가지 골라, 담백하고 따뜻한 한 문장으로 짚어줘. "
+                    "지켜야 할 것: "
+                    "1) 사용자의 심리 상태나 감정을 함부로 진단하거나 단정하지 말 것(예: '번아웃이시군요' 같은 표현 금지). "
+                    "2) 과장되거나 문학적인 수사(예: '카타르시스', '인과율', '우주', '영혼' 등)를 쓰지 말고 쉬운 일상어로 쓸 것. "
+                    "3) 40자 이내의 한 문장으로만 답할 것."
                 )
                 
                 response = model.generate_content(prompt)
