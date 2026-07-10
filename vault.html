@@ -66,14 +66,26 @@
         <div class="galaxy-actions">
             <div>
                 <h2 style="font-size: 1.8rem; margin-bottom: 0.2rem;">📂 사유 은하계</h2>
-                <p style="color: var(--text-muted); font-size: 0.9rem;">무심코 던진 생각 파편들이 성단처럼 유기적으로 요동칩니다. <span class="alchemy-badge">🧪 아이디어 연금술</span></p>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.15rem;">무심코 던진 생각 파편들이 성단처럼 유기적으로 요동칩니다. <span class="alchemy-badge">🧪 아이디어 연금술</span></p>
+                <p style="color: var(--text-muted); font-size: 0.78rem;">= 저장된 생각들을 그래프로 보여줘요 · 복잡하면 오른쪽에서 목록 보기로 바꿔보세요</p>
             </div>
-            <div>
+            <div style="display:flex; gap:0.5rem; align-items:center;">
+                <button id="view-mode-toggle" class="toggle-btn-alchemy">📋 목록으로 보기</button>
                 <button id="alchemy-toggle-switch" class="toggle-btn-alchemy">🧪 연금술 모드: OFF</button>
             </div>
         </div>
 
-        <div class="vault-wrapper">
+        <!-- 시간순 목록 보기: 그래프가 복잡하게 느껴질 때를 위한 단순한 리스트 -->
+        <div id="list-view-wrapper" style="display:none; max-width: 900px; margin: 0 auto;">
+            <div class="card">
+                <div style="margin-bottom:1rem;">
+                    <input type="text" id="list-search-input" placeholder="🔍 내용으로 검색해보세요" class="form-control" style="width:100%; padding:0.7rem; border:1px solid var(--border-color); border-radius:8px; background:var(--card-bg); color:var(--text-color);">
+                </div>
+                <div id="thought-list-container" style="display:flex; flex-direction:column; gap:0.6rem; max-height:70vh; overflow-y:auto;"></div>
+            </div>
+        </div>
+
+        <div class="vault-wrapper" id="graph-view-wrapper">
             <div id="canvas-galaxy"></div>
             <div id="mobile-tag-guard"><div class="inspector-placeholder">스캔 중...</div></div>
 
@@ -147,7 +159,62 @@
                     toggleBtn.classList.remove("active");
                 }
             });
+
+            // 📋 그래프 ↔ 목록 보기 전환
+            const viewToggleBtn = document.getElementById("view-mode-toggle");
+            viewToggleBtn.addEventListener("click", () => {
+                isListView = !isListView;
+                document.getElementById("list-view-wrapper").style.display = isListView ? "block" : "none";
+                document.getElementById("graph-view-wrapper").style.display = isListView ? "none" : "flex";
+                viewToggleBtn.innerText = isListView ? "🌌 그래프로 보기" : "📋 목록으로 보기";
+                if (isListView) renderThoughtList(document.getElementById("list-search-input").value);
+            });
+
+            document.getElementById("list-search-input").addEventListener("input", (e) => {
+                renderThoughtList(e.target.value);
+            });
         });
+
+        let isListView = false;
+
+        function renderThoughtList(searchTerm = "") {
+            const container = document.getElementById("thought-list-container");
+            if (!container) return;
+
+            const term = searchTerm.trim().toLowerCase();
+            const filtered = (allThoughts || [])
+                .filter(t => !term || t.content.toLowerCase().includes(term))
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:2rem;">${term ? "검색 결과가 없어요." : "아직 저장된 생각이 없어요."}</p>`;
+                return;
+            }
+
+            container.innerHTML = "";
+            filtered.forEach(t => {
+                const row = document.createElement("div");
+                row.style.cssText = "padding:0.9rem; border:1px solid var(--border-color); border-radius:8px; cursor:pointer;";
+                const dateStr = new Date(t.created_at).toLocaleDateString('ko-KR');
+                const tagsHtml = (t.tags || []).map(tag => `<span style="font-size:0.75rem; padding:0.15rem 0.5rem; background:rgba(74,111,165,0.1); color:var(--accent-color); border-radius:10px; margin-right:0.3rem;">#${tag}</span>`).join("");
+                row.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; gap:1rem; margin-bottom:0.4rem;">
+                        <span style="font-size:0.95rem; color:var(--text-color);">${t.content}</span>
+                        <span style="font-size:0.78rem; color:var(--text-muted); flex-shrink:0;">${dateStr}</span>
+                    </div>
+                    <div>${tagsHtml}</div>
+                `;
+                row.addEventListener("click", () => {
+                    isListView = false;
+                    document.getElementById("list-view-wrapper").style.display = "none";
+                    document.getElementById("graph-view-wrapper").style.display = "flex";
+                    document.getElementById("view-mode-toggle").innerText = "📋 목록으로 보기";
+                    handleThoughtClick(t);
+                    if (networkEngine) networkEngine.focus(`thought_${t.id}`, { scale: 1.2, animation: true });
+                });
+                container.appendChild(row);
+            });
+        }
 
         function triggerSparkExplosion(x, y, isDeep = false) {
             const count = isDeep ? 30 : 15;

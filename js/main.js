@@ -59,6 +59,50 @@ async function loadDashboardMetrics() {
 
     // 5. 뜻밖의 공명: 과거 생각 하나를 무작위로 뽑아 보여주고, 클릭 시 타래장에서 바로 확인
     buildResonance(thoughts);
+
+    // 6. 최근에 남긴 생각 5개: 방금 쓴 걸 바로 다시 확인할 수 있게
+    buildRecentList(thoughts);
+}
+
+function buildRecentList(thoughts) {
+    const listEl = document.getElementById("recent-thoughts-list");
+    if (!listEl) return;
+
+    if (!thoughts || thoughts.length === 0) {
+        listEl.innerHTML = `<p style="color:var(--text-muted); font-size:0.9rem;">아직 기록된 생각이 없어요.</p>`;
+        return;
+    }
+
+    const recent = [...thoughts]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 5);
+
+    listEl.innerHTML = "";
+    recent.forEach(t => {
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex; justify-content:space-between; align-items:baseline; gap:1rem; padding:0.5rem 0; border-bottom:1px solid var(--border-color); cursor:pointer;";
+        const timeAgo = formatRelativeTime(t.created_at);
+        row.innerHTML = `
+            <span style="font-size:0.9rem; color:var(--text-color); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${t.content}</span>
+            <span style="font-size:0.75rem; color:var(--text-muted); flex-shrink:0;">${timeAgo}</span>
+        `;
+        row.addEventListener("click", () => {
+            sessionStorage.setItem("vault_focus_thought", String(t.id));
+            location.href = "vault.html";
+        });
+        listEl.appendChild(row);
+    });
+}
+
+function formatRelativeTime(dateStr) {
+    const diffMs = new Date() - new Date(dateStr);
+    const diffMin = Math.floor(diffMs / (1000 * 60));
+    if (diffMin < 1) return "방금 전";
+    if (diffMin < 60) return `${diffMin}분 전`;
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return `${diffHour}시간 전`;
+    const diffDay = Math.floor(diffHour / 24);
+    return `${diffDay}일 전`;
 }
 
 function buildTagCloud(thoughts) {
