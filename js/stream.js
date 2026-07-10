@@ -38,29 +38,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         }, 2200);
     }
 
-    async function updateDynamicMetrics(allThoughtsData) {
-        try {
-            const elements = Array.from(document.querySelectorAll(".metric-card, p, span, div"));
-            
-            // 1. 풀려 있는 실가닥 매핑
-            const cardUnraveled = elements.find(el => el.textContent.includes("풀려 있는 실가닥"));
-            if (cardUnraveled) {
-                const num = cardUnraveled.querySelector(".metric-num") || cardUnraveled.parentElement.querySelector(".metric-num");
-                if (num) num.innerText = `${allThoughtsData.length}개`;
-            }
-        } catch(e) { console.error(e); }
-    }
-
     async function loadSavedThoughts() {
         try {
-            const result = typeof TaraeStorage !== 'undefined' ? await TaraeStorage.getThoughts() : { data: [] };
-            const data = (result && result.data) ? result.data : [];
-
-            await updateDynamicMetrics(data);
+            // [성능] 문구 표시 여부 판단에는 전체 데이터가 필요 없고 개수만 있으면 충분
+            const counts = typeof TaraeStorage !== 'undefined' ? await TaraeStorage.getThoughtCounts() : { total: 0 };
 
             // 입력창 위 문구는 단순한 유도 멘트로 고정 (과거 생각 미리보기는 "뜻밖의 공명" 섹션이 전담)
             if (placeholderText) {
-                placeholderText.innerText = data.length > 0
+                placeholderText.innerText = counts.total > 0
                     ? "오늘 하루 고생 많았어요. 마음에 가득 찬 잔상들을 털어내 보세요."
                     : "🧵 아직 적재된 사유가 없습니다. 첫 실마리를 던져보세요!";
             }
@@ -114,7 +99,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             // 최신 데이터로 태그 클라우드만 조용히 새로고침 (다른 화면 요소는 안 건드림)
             removeQuickPreviewTag();
             if (typeof buildTagCloud === "function") {
-                const { data } = await TaraeStorage.getThoughts();
+                // [성능] 태그클라우드 갱신에도 전체 대신 최근 300개 표본이면 충분
+                const { data } = await TaraeStorage.getThoughtsSample(300);
                 buildTagCloud(data || []);
             }
         } catch (e) {

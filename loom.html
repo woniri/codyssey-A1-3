@@ -58,9 +58,11 @@
         <div class="loom-grid">
             <div class="thought-rack">
                 <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 0.5rem;">📥 풀려 있는 실가닥</h3>
+                <input type="text" id="rack-search-input" placeholder="🔍 검색" style="padding:0.5rem 0.7rem; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-color); font-size:0.85rem;">
                 <div id="rack-list-zone" style="display:flex; flex-direction:column; gap:0.6rem; flex:1; overflow-y:auto;">
                     <p style="color:var(--text-muted); font-size:0.9rem; text-align:center; margin:auto;">사유 적재 소스 로딩 중...</p>
                 </div>
+                <button id="rack-load-more-btn" style="padding:0.5rem; background:none; border:1px solid var(--border-color); color:var(--text-muted); border-radius:6px; cursor:pointer; font-size:0.85rem; display:none;">더 불러오기</button>
                 <button id="trigger-weave-btn" class="btn-weave" disabled>🧵 선택한 사유 직조하기</button>
             </div>
 
@@ -88,6 +90,9 @@
     <script>
         let localThoughts = [];
         let selectedThought = null;
+        let rackOffset = 0;
+        const RACK_PAGE_SIZE = 20;
+        let rackHasMore = true;
 
         document.addEventListener("DOMContentLoaded", async () => {
             if (typeof TaraeStorage !== 'undefined') {
@@ -95,32 +100,59 @@
                 loadRackThoughts();
             }
             document.getElementById("trigger-weave-btn").addEventListener("click", executeWeaveTactics);
+            document.getElementById("rack-load-more-btn").addEventListener("click", () => loadRackThoughts(true));
+            document.getElementById("rack-search-input").addEventListener("input", (e) => {
+                renderRackList(e.target.value);
+            });
         });
 
-        async function loadRackThoughts() {
+        // [성능] 전체를 한 번에 안 받고, 20개씩 "더 보기"로 필요할 때만 추가로 가져옴
+        async function loadRackThoughts(append = false) {
             const listZone = document.getElementById("rack-list-zone");
+            const loadMoreBtn = document.getElementById("rack-load-more-btn");
             try {
-                const result = await TaraeStorage.getThoughts();
-                if (result && result.data && result.data.length > 0) {
-                    localThoughts = result.data;
-                    listZone.innerHTML = "";
-                    
-                    localThoughts.slice(0, 20).forEach(item => {
-                        const div = document.createElement("div");
-                        div.className = "rack-item";
-                        div.innerText = item.content.length > 55 ? item.content.substring(0, 55) + "..." : item.content;
-                        div.addEventListener("click", () => {
-                            document.querySelectorAll(".rack-item").forEach(r => r.classList.remove("selected"));
-                            div.classList.add("selected");
-                            selectedThought = item;
-                            document.getElementById("trigger-weave-btn").disabled = false;
-                        });
-                        listZone.appendChild(div);
-                    });
-                } else {
-                    listZone.innerHTML = `<p style="color:var(--text-muted); text-align:center; margin:auto;">시드 데이터가 비어있습니다.</p>`;
+                const result = await TaraeStorage.getThoughtsPage({ limit: RACK_PAGE_SIZE, offset: rackOffset });
+                const newItems = (result && result.data) ? result.data : [];
+
+                if (newItems.length < RACK_PAGE_SIZE) rackHasMore = false;
+                rackOffset += newItems.length;
+
+                localThoughts = append ? [...localThoughts, ...newItems] : newItems;
+
+                if (localThoughts.length === 0) {
+                    listZone.innerHTML = `<p style="color:var(--text-muted); text-align:center; margin:auto;">아직 저장된 생각이 없어요.</p>`;
+                    loadMoreBtn.style.display = "none";
+                    return;
                 }
-            } catch(e) { console.error(e); }
+
+                renderRackList(document.getElementById("rack-search-input").value);
+                loadMoreBtn.style.display = rackHasMore ? "block" : "none";
+            } catch (e) { console.error(e); }
+        }
+
+        function renderRackList(searchTerm = "") {
+            const listZone = document.getElementById("rack-list-zone");
+            const term = searchTerm.trim().toLowerCase();
+            const filtered = term ? localThoughts.filter(t => t.content.toLowerCase().includes(term)) : localThoughts;
+
+            listZone.innerHTML = "";
+            if (filtered.length === 0) {
+                listZone.innerHTML = `<p style="color:var(--text-muted); text-align:center; margin:auto;">${term ? "검색 결과가 없어요." : "아직 저장된 생각이 없어요."}</p>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const div = document.createElement("div");
+                div.className = "rack-item";
+                div.innerText = item.content.length > 55 ? item.content.substring(0, 55) + "..." : item.content;
+                div.addEventListener("click", () => {
+                    document.querySelectorAll(".rack-item").forEach(r => r.classList.remove("selected"));
+                    div.classList.add("selected");
+                    selectedThought = item;
+                    document.getElementById("trigger-weave-btn").disabled = false;
+                });
+                listZone.appendChild(div);
+            });
         }
 
         async function executeWeaveTactics() {

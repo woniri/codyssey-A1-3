@@ -85,6 +85,12 @@
             </div>
         </div>
 
+        <!-- [성능] 전체를 한 번에 안 그리고, 필요할 때만 더 불러오는 버튼 -->
+        <div style="max-width: 900px; margin: 0.8rem auto; text-align:center;">
+            <button id="vault-load-more-btn" style="display:none; padding:0.6rem 1.2rem; background:none; border:1px solid var(--border-color); color:var(--text-muted); border-radius:8px; cursor:pointer; font-size:0.9rem;">더 불러오기</button>
+            <p id="vault-scope-note" style="font-size:0.78rem; color:var(--text-muted); margin-top:0.4rem;"></p>
+        </div>
+
         <div class="vault-wrapper" id="graph-view-wrapper">
             <div id="canvas-galaxy"></div>
             <div id="mobile-tag-guard"><div class="inspector-placeholder">스캔 중...</div></div>
@@ -190,6 +196,18 @@
             document.getElementById("btn-cancel-edit").addEventListener("click", cancelEditThought);
             document.getElementById("btn-save-edit").addEventListener("click", saveEditThought);
             document.getElementById("btn-delete-thought").addEventListener("click", deleteCurrentThought);
+
+            // [성능] 더 불러오기
+            document.getElementById("vault-load-more-btn").addEventListener("click", async () => {
+                if (vaultMode === "tag") return; // 태그 모드는 이미 전체를 다 불러온 상태
+                const btn = document.getElementById("vault-load-more-btn");
+                btn.disabled = true;
+                btn.innerText = "불러오는 중...";
+                await loadVaultPage(false);
+                updateVaultScopeNote();
+                btn.disabled = false;
+                btn.innerText = "더 불러오기";
+            });
         });
 
         let isListView = false;
@@ -247,54 +265,118 @@
             }
         }
 
+        // [성능] 페이지네이션 상태
+        let vaultMode = "recent";  // "recent" | "projects" | "stale" | "tag"
+        let vaultOffset = 0;
+        let vaultHasMore = true;
+        const VAULT_PAGE_SIZE = 40;
+
         async function fetchAndBuildVault() {
             try {
-                const result = await TaraeStorage.getThoughts();
-                if (!result || result.error || !result.data || result.data.length === 0) return;
-
-                let dataList = result.data;
-
-                // 🔗 실마리 홈의 하단 지표 클릭으로 넘어온 경우: 필터링된 화면만 보여줌
+                // 🔗 실마리 홈의 하단 지표 클릭으로 넘어온 필터가 있으면 그 모드로 시작
                 const filterType = sessionStorage.getItem("vault_filter_type");
-                if (filterType) {
-                    sessionStorage.removeItem("vault_filter_type");
-                    if (filterType === "projects") {
-                        dataList = dataList.filter(t => t.project_id);
-                    } else if (filterType === "stale") {
-                        dataList = dataList.filter(t => (new Date() - new Date(t.created_at)) > 14 * 24 * 60 * 60 * 1000);
-                    }
-                }
-
-                if (dataList.length === 0) {
-                    document.getElementById("canvas-galaxy").innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); text-align:center; padding:1rem;">🧵 아직 해당하는 생각이 없어요.</div>`;
-                    document.getElementById("mobile-tag-guard").innerHTML = `<div class="inspector-placeholder">아직 해당하는 생각이 없어요.</div>`;
-                    return;
-                }
-
-                allThoughts = dataList;
-                buildDesktopGalaxy(allThoughts);
-                buildMobileTagGuard(allThoughts);
-                handleResponsiveGuard();
+                if (filterType === "projects") vaultMode = "projects";
+                else if (filterType === "stale") vaultMode = "stale";
+                sessionStorage.removeItem("vault_filter_type");
 
                 const sharedTag = sessionStorage.getItem("vault_filter_tag");
                 if (sharedTag) {
-                    sessionStorage.removeItem("vault_filter_tag"); 
-                    setTimeout(() => { inspectTagGroup(sharedTag); }, 400); 
+                    sessionStorage.removeItem("vault_filter_tag");
+                    vaultMode = "tag";
+                    await loadVaultTagMode(sharedTag);
+                } else {
+                    await loadVaultPage(true); // 첫 페이지 로드
                 }
+
+                updateVaultScopeNote();
 
                 // 🔗 실마리 홈의 "뜻밖의 공명"에서 넘어온 경우: 해당 생각으로 바로 포커스
                 const focusId = sessionStorage.getItem("vault_focus_thought");
                 if (focusId) {
                     sessionStorage.removeItem("vault_focus_thought");
-                    const target = allThoughts.find(t => String(t.id) === String(focusId));
-                    if (target) {
-                        setTimeout(() => {
-                            handleThoughtClick(target);
-                            if (networkEngine) networkEngine.focus(`thought_${target.id}`, { scale: 1.2, animation: true });
-                        }, 400);
-                    }
+                    await focusOnThought(focusId);
                 }
             } catch (err) { console.error(err); }
+        }
+
+        // 일반/프로젝트/오래된것 모드: 페이지 단위로 불러오기
+        async function loadVaultPage(isFirstPage = false) {
+            if (isFirstPage) { vaultOffset = 0; vaultHasMore = true; allThoughts = []; }
+
+            let result;
+            if (vaultMode === "projects") {
+                result = await TaraeStorage.getProjectLinkedThoughtsPage({ limit: VAULT_PAGE_SIZE, offset: vaultOffset });
+            } else if (vaultMode === "stale") {
+                result = await TaraeStorage.getStaleThoughtsPage({ limit: VAULT_PAGE_SIZE, offset: vaultOffset });
+            } else {
+                result = await TaraeStorage.getThoughtsPage({ limit: VAULT_PAGE_SIZE, offset: vaultOffset });
+            }
+
+            const newItems = (result && result.data) ? result.data : [];
+            if (newItems.length < VAULT_PAGE_SIZE) vaultHasMore = false;
+            vaultOffset += newItems.length;
+            allThoughts = [...allThoughts, ...newItems];
+
+            renderCurrentVaultData();
+        }
+
+        // 태그 필터 모드: 서버에서 해당 태그를 가진 것만 전부 가져옴 (보통 소량이라 페이지네이션 불필요)
+        async function loadVaultTagMode(tag) {
+            const result = await TaraeStorage.getThoughtsByTag(tag);
+            allThoughts = (result && result.data) ? result.data : [];
+            vaultHasMore = false; // 태그 모드는 이미 전체를 다 가져왔으므로 "더 보기" 없음
+
+            renderCurrentVaultData();
+
+            setTimeout(() => { inspectTagGroup(tag); }, 400);
+        }
+
+        function renderCurrentVaultData() {
+            const loadMoreBtn = document.getElementById("vault-load-more-btn");
+
+            if (allThoughts.length === 0) {
+                document.getElementById("canvas-galaxy").innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); text-align:center; padding:1rem;">🧵 아직 해당하는 생각이 없어요.</div>`;
+                document.getElementById("mobile-tag-guard").innerHTML = `<div class="inspector-placeholder">아직 해당하는 생각이 없어요.</div>`;
+                loadMoreBtn.style.display = "none";
+                return;
+            }
+
+            buildDesktopGalaxy(allThoughts);
+            buildMobileTagGuard(allThoughts);
+            handleResponsiveGuard();
+            if (isListView) renderThoughtList(document.getElementById("list-search-input").value);
+
+            loadMoreBtn.style.display = vaultHasMore ? "inline-block" : "none";
+        }
+
+        function updateVaultScopeNote() {
+            const note = document.getElementById("vault-scope-note");
+            if (!note) return;
+            const modeLabel = { recent: "최근순", projects: "프로젝트로 엮인 것만", stale: "오래 방치된 것만", tag: "선택한 태그만" }[vaultMode];
+            note.innerText = vaultHasMore
+                ? `${modeLabel} · 최근 ${allThoughts.length}개를 불러왔어요 (더 있어요)`
+                : `${modeLabel} · 전체 ${allThoughts.length}개를 다 불러왔어요`;
+        }
+
+        // 특정 생각으로 바로 포커스 — 지금 로드된 페이지 창에 없으면 해당 생각만 따로 가져와 추가
+        async function focusOnThought(thoughtId) {
+            let target = allThoughts.find(t => String(t.id) === String(thoughtId));
+
+            if (!target) {
+                const { data } = await TaraeStorage.getThoughtById(thoughtId);
+                if (data) {
+                    target = data;
+                    allThoughts = [data, ...allThoughts];
+                    renderCurrentVaultData();
+                }
+            }
+
+            if (target) {
+                setTimeout(() => {
+                    handleThoughtClick(target);
+                    if (networkEngine) networkEngine.focus(`thought_${target.id}`, { scale: 1.2, animation: true });
+                }, 400);
+            }
         }
 
         function buildDesktopGalaxy(dataList) {

@@ -9,23 +9,19 @@ async function loadDashboardMetrics() {
     const uid = await TaraeStorage.getUserId();
     if (!uid) return;
 
-    // 1. 실제 생각 파편 및 프로젝트 데이터 긁어오기
-    const { data: thoughtsRaw } = await TaraeStorage.getThoughts();
+    // 1. [성능] 지표 3개는 전체 다운로드 없이 DB에서 개수만 세어옴
     const { data: projectsRaw } = await TaraeStorage.getProjects();
-    const thoughts = thoughtsRaw || [];
     const projects = projectsRaw || [];
-
-    const pendingThoughts = thoughts.filter(t => !t.project_id);
-    const staleThoughts = thoughts.filter(t => (new Date() - new Date(t.created_at)) > 14 * 24 * 60 * 60 * 1000);
+    const counts = await TaraeStorage.getThoughtCounts();
 
     // 2. 메트릭 카운트 화면 동적 갱신 + 각 메트릭 클릭 시 다른 페이지로 연결
     const metricsContainer = document.querySelectorAll(".main-container section.card:last-of-type span");
     const metricCards = document.querySelectorAll(".main-container section.card:last-of-type > div");
 
     if (metricsContainer.length === 3) {
-        metricsContainer[0].innerText = pendingThoughts.length; // 풀려 있는 실가닥
-        metricsContainer[1].innerText = projects.length;         // 단단해진 타래
-        metricsContainer[2].innerText = staleThoughts.length;    // 먼지 쌓이는 실가닥
+        metricsContainer[0].innerText = counts.unassigned; // 풀려 있는 실가닥
+        metricsContainer[1].innerText = projects.length;    // 단단해진 타래
+        metricsContainer[2].innerText = counts.stale;       // 먼지 쌓이는 실가닥
     }
 
     if (metricCards.length === 3) {
@@ -51,34 +47,31 @@ async function loadDashboardMetrics() {
         });
     }
 
-    // 3. 내 머릿속 기상도: 태그 클라우드 (최대 15개, 빈도에 따라 크기·색, 클릭 시 타래장 연동)
-    buildTagCloud(thoughts);
+    // 3. [성능] 태그클라우드 + 뜻밖의 공명은 전체가 아니라 최근 300개 표본으로 충분함
+    const { data: sampleRaw } = await TaraeStorage.getThoughtsSample(300);
+    const sample = sampleRaw || [];
+    buildTagCloud(sample);
+    buildResonance(sample);
 
     // 4. 오늘의 실마리: daily_insights 테이블에서 캐시된 AI 인사이트 로드
     loadDailyInsight();
 
-    // 5. 뜻밖의 공명: 과거 생각 하나를 무작위로 뽑아 보여주고, 클릭 시 타래장에서 바로 확인
-    buildResonance(thoughts);
-
-    // 6. 최근에 남긴 생각 5개: 방금 쓴 걸 바로 다시 확인할 수 있게
-    buildRecentList(thoughts);
+    // 5. [성능] 최근에 남긴 생각 5개: 처음부터 5개만 서버에 요청
+    const { data: recentRaw } = await TaraeStorage.getRecentThoughts(5);
+    buildRecentList(recentRaw || []);
 }
 
-function buildRecentList(thoughts) {
+function buildRecentList(recentThoughts) {
     const listEl = document.getElementById("recent-thoughts-list");
     if (!listEl) return;
 
-    if (!thoughts || thoughts.length === 0) {
+    if (!recentThoughts || recentThoughts.length === 0) {
         listEl.innerHTML = `<p style="color:var(--text-muted); font-size:0.9rem;">아직 기록된 생각이 없어요.</p>`;
         return;
     }
 
-    const recent = [...thoughts]
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 5);
-
     listEl.innerHTML = "";
-    recent.forEach(t => {
+    recentThoughts.forEach(t => {
         const row = document.createElement("div");
         row.style.cssText = "display:flex; justify-content:space-between; align-items:baseline; gap:1rem; padding:0.5rem 0; border-bottom:1px solid var(--border-color); cursor:pointer;";
         const timeAgo = formatRelativeTime(t.created_at);

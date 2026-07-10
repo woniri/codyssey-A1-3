@@ -99,6 +99,145 @@ const TaraeStorage = {
             .order("created_at", { ascending: false });
     },
 
+    // 🆕 [성능] 개수만 필요할 때: 전체를 안 받고 DB에게 세어달라고만 요청 (count-only, head:true → 행 데이터는 안 옴)
+    async getThoughtCounts() {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { total: 0, unassigned: 0, stale: 0 };
+
+        const staleCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+
+        const [totalRes, unassignedRes, staleRes] = await Promise.all([
+            client.from("thoughts").select("*", { count: "exact", head: true }).eq("user_id", uid),
+            client.from("thoughts").select("*", { count: "exact", head: true }).eq("user_id", uid).is("project_id", null),
+            client.from("thoughts").select("*", { count: "exact", head: true }).eq("user_id", uid).lt("created_at", staleCutoff)
+        ]);
+
+        return {
+            total: totalRes.count || 0,
+            unassigned: unassignedRes.count || 0,
+            stale: staleRes.count || 0
+        };
+    },
+
+    // 🆕 [성능] 홈 "최근에 남긴 생각": 딱 필요한 개수만 서버에서부터 제한
+    async getRecentThoughts(limit = 5) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: [], error: null };
+
+        return await client
+            .from("thoughts")
+            .select("id, content, created_at")
+            .eq("user_id", uid)
+            .order("created_at", { ascending: false })
+            .limit(limit);
+    },
+
+    // 🆕 [성능] 태그클라우드·뜻밖의 공명용 표본: 전체 대신 최근 N개만 (기본 300개 상한)
+    async getThoughtsSample(limit = 300) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: [], error: null };
+
+        return await client
+            .from("thoughts")
+            .select("id, content, tags, created_at, project_id")
+            .eq("user_id", uid)
+            .order("created_at", { ascending: false })
+            .limit(limit);
+    },
+
+    // 🆕 [성능] 타래장/베틀의 "더 보기" 페이지네이션 (최신순)
+    async getThoughtsPage({ limit = 40, offset = 0 } = {}) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: [], error: null };
+
+        return await client
+            .from("thoughts")
+            .select("*")
+            .eq("user_id", uid)
+            .order("created_at", { ascending: false })
+            .range(offset, offset + limit - 1);
+    },
+
+    // 🆕 [성능] "먼지 쌓이는 실가닥"만 페이지네이션으로 (오래 방치된 순 = 오래된 것부터)
+    async getStaleThoughtsPage({ limit = 40, offset = 0 } = {}) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: [], error: null };
+
+        const staleCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+
+        return await client
+            .from("thoughts")
+            .select("*")
+            .eq("user_id", uid)
+            .lt("created_at", staleCutoff)
+            .order("created_at", { ascending: true })
+            .range(offset, offset + limit - 1);
+    },
+
+    // 🆕 [성능] "단단해진 타래(프로젝트 연결된 것)"만 페이지네이션으로
+    async getProjectLinkedThoughtsPage({ limit = 40, offset = 0 } = {}) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: [], error: null };
+
+        return await client
+            .from("thoughts")
+            .select("*")
+            .eq("user_id", uid)
+            .not("project_id", "is", null)
+            .order("created_at", { ascending: false })
+            .range(offset, offset + limit - 1);
+    },
+
+    // 🆕 [성능] 특정 태그가 붙은 생각만 서버에서 필터링해서 가져오기
+    async getThoughtsByTag(tag) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: [], error: null };
+
+        return await client
+            .from("thoughts")
+            .select("*")
+            .eq("user_id", uid)
+            .contains("tags", [tag])
+            .order("created_at", { ascending: false });
+    },
+
+    // 🆕 [성능] 특정 기간(N일) 이내 생각만 가져오기 — 설정 페이지 테스트 발송용
+    async getThoughtsSince(days) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: [], error: null };
+
+        const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+        return await client
+            .from("thoughts")
+            .select("id, content, created_at")
+            .eq("user_id", uid)
+            .gte("created_at", cutoff)
+            .order("created_at", { ascending: false });
+    },
+
+    // 🆕 [성능] 특정 생각 하나만 정확히 조회 (딥링크로 넘어온 focus 대상이 현재 페이지 창에 없을 때)
+    async getThoughtById(id) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: null, error: null };
+
+        return await client
+            .from("thoughts")
+            .select("*")
+            .eq("id", id)
+            .eq("user_id", uid)
+            .maybeSingle();
+    },
+
     async getDailyInsight() {
         const client = await this.getClient();
         const uid = await this.getUserId();
