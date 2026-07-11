@@ -356,6 +356,24 @@ const TaraeStorage = {
             .eq("user_id", uid);
     },
 
+    // 🆕 커스텀 기간(시작일~종료일)으로 생각 조회 — 리포트 달력 선택용
+    async getThoughtsBetween(startDateStr, endDateStr) {
+        const client = await this.getClient();
+        const uid = await this.getUserId();
+        if (!client || !uid) return { data: [], error: null };
+
+        const startISO = new Date(startDateStr + "T00:00:00").toISOString();
+        const endISO = new Date(endDateStr + "T23:59:59").toISOString();
+
+        return await client
+            .from("thoughts")
+            .select("id, content, created_at")
+            .eq("user_id", uid)
+            .gte("created_at", startISO)
+            .lte("created_at", endISO)
+            .order("created_at", { ascending: false });
+    },
+
     /* === [2] 베틀 프로젝트 (Projects) 제어 모듈 === */
     async getProjects() {
         const client = await this.getClient();
