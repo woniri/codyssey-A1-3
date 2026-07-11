@@ -168,6 +168,30 @@
 
             <button class="btn-save" id="btn-settings-save">전체 설정 저장</button>
 
+            <!-- 🆕 AI 리포트 생성 & 다운로드 -->
+            <div class="channel-card" style="margin-top: 0.5rem;">
+                <div class="channel-card-title" style="margin-bottom:0.6rem;">📄 리포트 받기</div>
+                <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.8rem;">기간이나 조건을 골라서 AI가 요약·인사이트를 정리한 리포트를 받아보세요.</p>
+
+                <div class="form-group" style="margin-bottom:0.8rem;">
+                    <label style="font-size:0.85rem;">기간 또는 조건</label>
+                    <select id="report-scope-select" class="form-control">
+                        <option value="days:1">최근 1일</option>
+                        <option value="days:7" selected>최근 1주</option>
+                        <option value="days:30">최근 1달</option>
+                        <option value="filter:unassigned">풀려 있는 실가닥(미분류)만</option>
+                        <option value="filter:stale">먼지 쌓이는 실가닥(오래 방치)만</option>
+                    </select>
+                </div>
+
+                <button id="btn-generate-report" style="width:100%; padding:0.7rem; background:var(--accent-color); color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:0.6rem;">📄 리포트 생성하기</button>
+
+                <div id="report-result-zone" style="display:none;">
+                    <div id="report-result-text" style="white-space:pre-wrap; font-size:0.9rem; line-height:1.6; padding:1rem; background:rgba(74,111,165,0.04); border-radius:8px; margin-bottom:0.6rem; max-height:400px; overflow-y:auto;"></div>
+                    <button id="btn-download-report" style="width:100%; padding:0.6rem; background:none; border:1px solid var(--accent-color); color:var(--accent-color); border-radius:6px; cursor:pointer; font-size:0.85rem;">⬇️ 마크다운(.md) 파일로 다운로드</button>
+                </div>
+            </div>
+
             <div class="future-pipeline">
                 <span style="font-weight: bold; color: #e67e22; font-size: 0.9rem;">🔮 참고</span>
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.4rem; line-height: 1.4;">
@@ -200,6 +224,8 @@
             });
 
             document.getElementById("btn-settings-save").addEventListener("click", saveAllSettings);
+            document.getElementById("btn-generate-report").addEventListener("click", generateReport);
+            document.getElementById("btn-download-report").addEventListener("click", downloadReportAsMarkdown);
 
             await loadSettings();
         });
@@ -316,6 +342,83 @@
                 btn.disabled = false;
                 btn.innerText = originalText;
             }
+        }
+
+        let lastReportMarkdown = "";
+        let lastReportScopeLabel = "";
+
+        async function generateReport() {
+            const scopeValue = document.getElementById("report-scope-select").value;
+            const [kind, param] = scopeValue.split(":");
+
+            const scopeLabels = {
+                "days:1": "최근 1일",
+                "days:7": "최근 1주",
+                "days:30": "최근 1달",
+                "filter:unassigned": "풀려 있는 실가닥(미분류)",
+                "filter:stale": "먼지 쌓이는 실가닥(오래 방치)"
+            };
+            const scopeLabel = scopeLabels[scopeValue] || "선택한 기간";
+
+            const btn = document.getElementById("btn-generate-report");
+            const resultZone = document.getElementById("report-result-zone");
+            const resultText = document.getElementById("report-result-text");
+
+            btn.disabled = true;
+            btn.innerText = "리포트 만드는 중...";
+            resultZone.style.display = "block";
+            resultText.innerText = "🧵 생각들을 모아 정리하는 중이에요...";
+
+            try {
+                let thoughts = [];
+                if (kind === "days") {
+                    const { data } = await TaraeStorage.getThoughtsSince(parseInt(param));
+                    thoughts = data || [];
+                } else if (param === "unassigned") {
+                    const { data } = await TaraeStorage.getThoughtsPage({ limit: 200, offset: 0 });
+                    thoughts = (data || []).filter(t => !t.project_id);
+                } else if (param === "stale") {
+                    const { data } = await TaraeStorage.getStaleThoughtsPage({ limit: 200, offset: 0 });
+                    thoughts = data || [];
+                }
+
+                const response = await fetch("/api/generate_report", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ thoughts, scope_label: scopeLabel })
+                });
+
+                const json = await response.json();
+                if (!response.ok || json.error) throw new Error(json.error || "리포트 생성 실패");
+
+                lastReportMarkdown = json.report_markdown;
+                lastReportScopeLabel = scopeLabel;
+                resultText.innerText = json.report_markdown;
+            } catch (e) {
+                console.error(e);
+                resultText.innerText = "🌙 지금은 리포트를 만들지 못했어요. 잠시 후 다시 시도해봐 주세요.";
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "📄 리포트 생성하기";
+            }
+        }
+
+        function downloadReportAsMarkdown() {
+            if (!lastReportMarkdown) return;
+
+            const today = new Date().toISOString().slice(0, 10);
+            const frontmatter = `---\ntitle: 타래 리포트 - ${lastReportScopeLabel}\ndate: ${today}\ntags: [타래, 리포트]\n---\n\n`;
+            const fullContent = frontmatter + `# 타래 리포트 · ${lastReportScopeLabel}\n\n` + lastReportMarkdown;
+
+            const blob = new Blob([fullContent], { type: "text/markdown;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `tarae-report-${today}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
     </script>
 </body>
