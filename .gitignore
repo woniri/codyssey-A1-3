@@ -7,3 +7,4 @@ node_modules/
 .env*
 service_account.json
 service-account-oneline.json
+*.json.key
