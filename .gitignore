@@ -5,3 +5,5 @@ node_modules/
 .vercel/
 .vercel
 .env*
+service_account.json
+service-account-oneline.json

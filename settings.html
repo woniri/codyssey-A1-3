@@ -200,7 +200,10 @@
 
                 <div id="report-result-zone" style="display:none;">
                     <div id="report-result-text" style="white-space:pre-wrap; font-size:0.9rem; line-height:1.6; padding:1rem; background:rgba(74,111,165,0.04); border-radius:8px; margin-bottom:0.6rem; max-height:400px; overflow-y:auto;"></div>
-                    <button id="btn-download-report" style="width:100%; padding:0.6rem; background:none; border:1px solid var(--accent-color); color:var(--accent-color); border-radius:6px; cursor:pointer; font-size:0.85rem;">⬇️ 마크다운(.md) 파일로 다운로드</button>
+                    <div style="display:flex; gap:0.5rem;">
+                        <button id="btn-download-report" style="flex:1; padding:0.6rem; background:none; border:1px solid var(--accent-color); color:var(--accent-color); border-radius:6px; cursor:pointer; font-size:0.85rem;">⬇️ 마크다운(.md) 다운로드</button>
+                        <button id="btn-drive-upload-report" style="display:none; flex:1; padding:0.6rem; background:none; border:1px solid #2ecc71; color:#2ecc71; border-radius:6px; cursor:pointer; font-size:0.85rem;">📤 구글드라이브(옵시디언)로 보내기</button>
+                    </div>
                 </div>
             </div>
 
@@ -238,10 +241,14 @@
             document.getElementById("btn-settings-save").addEventListener("click", saveAllSettings);
             document.getElementById("btn-generate-report").addEventListener("click", generateReport);
             document.getElementById("btn-download-report").addEventListener("click", downloadReportAsMarkdown);
+            document.getElementById("btn-drive-upload-report").addEventListener("click", uploadReportToDrive);
 
             document.getElementById("report-scope-select").addEventListener("change", (e) => {
                 document.getElementById("report-custom-date-zone").style.display = e.target.value === "custom" ? "flex" : "none";
             });
+
+            // 🔒 관리자 계정에게만 "구글드라이브로 보내기" 버튼 노출
+            checkIsAdminAndToggleDriveButton();
 
             await loadSettings();
         });
@@ -464,6 +471,56 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        }
+        async function checkIsAdminAndToggleDriveButton() {
+            try {
+                const uid = await TaraeStorage.getUserId();
+                if (!uid) return;
+
+                const response = await fetch("/api/check_admin", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ user_id: uid })
+                });
+                const json = await response.json();
+                if (json.is_admin) {
+                    document.getElementById("btn-drive-upload-report").style.display = "block";
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function uploadReportToDrive() {
+            if (!lastReportMarkdown) return;
+
+            const uid = await TaraeStorage.getUserId();
+            const today = new Date().toISOString().slice(0, 10);
+            const frontmatter = `---\ntitle: 타래 리포트 - ${lastReportScopeLabel}\ndate: ${today}\ntags: [타래, 리포트]\n---\n\n`;
+            const fullContent = frontmatter + `# 타래 리포트 · ${lastReportScopeLabel}\n\n` + lastReportMarkdown;
+            const filename = `tarae-report_${lastReportFileSlug}_${today}.md`;
+
+            const btn = document.getElementById("btn-drive-upload-report");
+            btn.disabled = true;
+            btn.innerText = "보내는 중...";
+
+            try {
+                const response = await fetch("/api/drive_upload", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ user_id: uid, filename, content: fullContent })
+                });
+                const json = await response.json();
+                if (!response.ok || json.error) throw new Error(json.error || "업로드 실패");
+
+                alert("📤 구글드라이브로 보냈어요. 잠시 후 옵시디언에도 반영될 거예요.");
+            } catch (e) {
+                console.error(e);
+                alert(`❌ 전송 실패: ${e.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "📤 구글드라이브(옵시디언)로 보내기";
+            }
         }
     </script>
 </body>
